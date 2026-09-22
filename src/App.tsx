@@ -311,22 +311,37 @@ export default function App() {
       };
       await addDoc(collection(db, "messages"), userMsgDoc);
 
-      // 2. Fetch history of last 8 chat logs for conversation contextual flow
-      const conversationHistory = messages.slice(-8).map((m) => ({
+      // 2. Fetch history of last 4 chat logs for conversation contextual flow
+      const conversationHistory = messages.slice(-4).map((m) => ({
         sender: m.sender,
         text: m.text
       }));
 
-      // 3. Post to custom Express dev/production backend API
-      const res = await fetch("/api/chat/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: text.trim(),
-          history: conversationHistory,
-          userId: user.id
-        })
-      });
+      // 3. Post to custom Express dev/production backend API with retry
+      let res: Response | null = null;
+      let lastFetchErr: any = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          res = await fetch("/api/chat/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              question: text.trim(),
+              history: conversationHistory,
+              userId: user.id
+            })
+          });
+          break;
+        } catch (fetchErr: any) {
+          lastFetchErr = fetchErr;
+          console.warn(`[DIAGNOSTIC] Chat ask fetch attempt ${attempt + 1} failed (${fetchErr.message}). Retrying...`);
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        }
+      }
+
+      if (!res) {
+        throw lastFetchErr || new Error("Failed to fetch chat ask endpoint.");
+      }
 
       if (!res.ok) {
         const errData = await res.json();

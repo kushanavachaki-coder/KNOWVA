@@ -73,16 +73,31 @@ export default function ChatSection({
       }
 
       console.log("[DIAGNOSTIC] Study-note generation started ✓ (Querying backend compile API /api/notes/generate)");
-      const res = await fetch("/api/notes/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: questionText,
-          answer: msg.text,
-          sources: msg.sources || [],
-          userId: userId
-        })
-      });
+      let res: Response | null = null;
+      let lastFetchErr: any = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          res = await fetch("/api/notes/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              question: questionText,
+              answer: msg.text,
+              sources: msg.sources || [],
+              userId: userId
+            })
+          });
+          break;
+        } catch (fetchErr: any) {
+          lastFetchErr = fetchErr;
+          console.warn(`[DIAGNOSTIC] Fetch attempt ${attempt + 1} failed (${fetchErr.message}). Retrying...`);
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        }
+      }
+
+      if (!res) {
+        throw lastFetchErr || new Error("Failed to fetch study notes generation endpoint.");
+      }
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));

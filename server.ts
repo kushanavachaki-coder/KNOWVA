@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { initializeApp } from "firebase/app";
 import { 
   getFirestore, 
@@ -181,7 +181,7 @@ async function startServer() {
       console.log(`[RAG INGEST DIAGNOSTIC 5/5] Document master metadata written to Firestore collection "documents". ID: ${docRef.id}`);
 
       // 2. Generate embeddings for each chunk and save to Firestore
-      console.log(`[RAG INGEST DIAGNOSTIC 4/5] Initiating Gemini Embeddings. Model: "gemini-embedding-2-preview"`);
+      console.log(`[RAG INGEST DIAGNOSTIC 4/5] Initiating Gemini Embeddings. Model: "gemini-embedding-2"`);
       const processedChunks: any[] = [];
       const batchSize = 10;
       
@@ -190,7 +190,7 @@ async function startServer() {
         const embedPromises = batch.map(async (rc) => {
           try {
             const embedRes: any = await ai.models.embedContent({
-              model: "gemini-embedding-2-preview",
+              model: "gemini-embedding-2",
               contents: rc.text
             });
             const values = embedRes.embedding?.values || embedRes.embeddings?.[0]?.values || embedRes.embeddings?.values;
@@ -278,6 +278,35 @@ async function startServer() {
     }
   });
 
+  // Helper for exponential backoff on 503 / UNAVAILABLE errors (throws immediately on 429 quota exhaustion or 404 model config errors)
+  async function generateContentWithRetry(params: any, maxRetries = 2, initialDelayMs = 2000) {
+    let lastErr: any = null;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await ai.models.generateContent(params);
+      } catch (err: any) {
+        lastErr = err;
+        const errMsg = err?.message || JSON.stringify(err);
+        if (errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
+          console.warn(`[GEMINI QUOTA EXCEEDED] Model ${params.model} hit 429 quota limit. Failing over immediately to next model...`);
+          throw err;
+        }
+        if (errMsg.includes("404") || errMsg.includes("not found") || errMsg.includes("is not found") || errMsg.includes("not supported")) {
+          console.error(`[MODEL CONFIG ERROR] Model ${params.model} is invalid, not found, or not supported: ${errMsg}`);
+          throw err;
+        }
+        if (errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("high demand") || errMsg.includes("overloaded")) {
+          const delay = initialDelayMs * Math.pow(1.5, attempt);
+          console.warn(`[GEMINI RETRY] Model ${params.model} got 503/UNAVAILABLE. Retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastErr;
+  }
+
   // 2. Chat Query & Retrieval (RAG)
   app.post("/api/chat/ask", async (req, res) => {
     try {
@@ -293,7 +322,7 @@ async function startServer() {
       let questionEmbedding: number[] = [];
       try {
         const qEmbedRes: any = await ai.models.embedContent({
-          model: "gemini-embedding-2-preview",
+          model: "gemini-embedding-2",
           contents: question
         });
         questionEmbedding = qEmbedRes.embedding?.values || qEmbedRes.embeddings?.[0]?.values || qEmbedRes.embeddings?.values || [];
@@ -372,24 +401,25 @@ async function startServer() {
       // Sort by combined score descending
       rankedChunks.sort((a, b) => b.similarity - a.similarity);
 
-      // Select top 5 chunks
-      const topChunks = rankedChunks.slice(0, 5);
+      // Select top 3 chunks
+      const topChunks = rankedChunks.slice(0, 3);
 
-      // Log matching scores andPreviews
+      // Log matching scores and Previews
       console.log(`[RAG SEARCH RETRIEVAL PREVIEW] Found ${topChunks.length} highly matching chunks:`);
       topChunks.forEach((c, idx) => {
         console.log(`  - [Chunk #${idx+1}] File: "${c.documentTitle}" (p. ${c.pageNumber}) | Combined: ${c.similarity.toFixed(3)} (Cosine: ${c.cosineScore.toFixed(3)}, Keyword: ${c.keywordScore.toFixed(3)})`);
         console.log(`    Excerpt: "${c.text.substring(0, 95).replace(/\n/g, ' ')}..."`);
       });
 
-      // Prepare context block
+      // Prepare context block (truncated to control token usage)
       let context = "";
       const sources: any[] = [];
 
       if (topChunks.length > 0) {
         context = "RETRIEVED SYLLABUS/DOCUMENT CONTENT:\n";
         topChunks.forEach((chunk, index) => {
-          context += `[Source ${index + 1}]: Document: "${chunk.documentTitle}" (Page ${chunk.pageNumber})\nContent: ${chunk.text}\n\n`;
+          const truncatedText = chunk.text.length > 450 ? chunk.text.substring(0, 450) + "..." : chunk.text;
+          context += `[Source ${index + 1}]: Document: "${chunk.documentTitle}" (Page ${chunk.pageNumber})\nContent: ${truncatedText}\n\n`;
           sources.push({
             title: chunk.documentTitle,
             page: chunk.pageNumber,
@@ -437,23 +467,34 @@ Rules for answering:
         parts: [{ text: currentPromptText }]
       });
 
-      // E. Generate answer with Gemini
-      console.log(`[RAG SEARCH STEP 7] Submitting grounded payload to model: "gemini-3.8-flash"...`);
+      // E. Generate answer with Gemini with multi-model fallback and retry
+      const askModels = ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.5-flash"];
       let generatedText = "";
-      try {
-        const response = await ai.models.generateContent({
-          model: "gemini-3.8-flash",
-          contents: messagesPayload,
-          config: {
-            systemInstruction: systemInstruction,
-            temperature: 0.15
-          }
-        });
-        generatedText = response.text || "";
-      } catch (err: any) {
-        console.error("[RAG SEARCH ERROR Stage: GEMINI_QA_FAILED] ", err);
+      let lastAskErr: any = null;
+
+      for (const mName of askModels) {
+        try {
+          console.log(`[RAG SEARCH STEP 7] Submitting grounded payload to model: "${mName}"...`);
+          const response = await generateContentWithRetry({
+            model: mName,
+            contents: messagesPayload,
+            config: {
+              systemInstruction: systemInstruction,
+              temperature: 0.15
+            }
+          });
+          generatedText = response.text || "";
+          if (generatedText) break;
+        } catch (err: any) {
+          lastAskErr = err;
+          console.warn(`[RAG SEARCH WARNING] Model ${mName} failed:`, err?.message || err);
+        }
+      }
+
+      if (!generatedText) {
+        console.error("[RAG SEARCH ERROR Stage: GEMINI_QA_FAILED] All models failed", lastAskErr);
         return res.status(500).json({ 
-          error: "Failed to generate answer from study materials via Gemini.",
+          error: lastAskErr?.message || "Failed to generate answer from study materials. All Gemini models failed.",
           errorStage: "GEMINI_QA_FAILED"
         });
       }
@@ -504,81 +545,123 @@ Rules for answering:
         return res.status(400).json({ error: "Question and Answer are required to compile a note" });
       }
 
-      const prompt = `You are a professional study content summarizer. Create a highly detailed, clean study note for a student's personal notes library based on their ask-and-answer interaction.
+      const prompt = `You are a professional study content summarizer. Create a highly detailed, structured study note for a student's personal notes library based strictly on their ask-and-answer interaction and source materials.
 
       User Question: ${question}
       AI Answer: ${answer}
       Sources Used: ${JSON.stringify(sources)}
 
-      Generate a strictly valid JSON study note matching the following typescript type fields perfectly. Do not output any trailing commas, markdown formatting tags, or wrappers. Just output a raw JSON string.
-
-      JSON structure:
-      {
-        "title": "Short descriptive topic title based on question",
-        "summary": "A concise 1-2 sentence high-yield summary of the topic",
-        "keyConcepts": ["Concept 1 details", "Concept 2 details", "Concept 3 details"],
-        "definitions": [
-          {"term": "Term Name", "definition": "Direct educational definition"}
-        ],
-        "mechanisms": ["Step-by-step description of process, pathway, or mechanism"],
-        "examPoints": ["Exam-oriented tip 1", "Exam-oriented tip 2"],
-        "memoryCues": ["Acronyms, mnemonics, or memory tricks to recall this"],
-        "vivaQuestions": ["Interactive Oral prep question 1", "Interactive Oral prep question 2"]
-      }`;
+      Summarize the actual generated answer and study context accurately. If the answer contains information marked as Extra info, include it properly without pretending general knowledge came from uploaded study material.`;
 
       let noteContent = "";
-      try {
-        const response = await ai.models.generateContent({
-          model: "gemini-3.8-flash",
-          contents: prompt,
-          config: {
-            temperature: 0.3
+      const noteModels = ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.5-flash"];
+      let lastNoteErr: any = null;
+      let successfulModel = "";
+
+      for (const mName of noteModels) {
+        try {
+          console.log(`[STUDY NOTE DIAGNOSTIC] Model attempted: "${mName}"`);
+          const response = await generateContentWithRetry({
+            model: mName,
+            contents: prompt,
+            config: {
+              temperature: 0.3,
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING, description: "Short descriptive topic title based on question" },
+                  summary: { type: Type.STRING, description: "A concise 1-2 sentence high-yield summary of the topic" },
+                  keyConcepts: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "List of core key concepts"
+                  },
+                  definitions: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        term: { type: Type.STRING, description: "Term name" },
+                        definition: { type: Type.STRING, description: "Direct educational definition" }
+                      },
+                      required: ["term", "definition"]
+                    },
+                    description: "List of key definitions"
+                  },
+                  mechanisms: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "Step-by-step description of processes or pathways"
+                  },
+                  examPoints: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "Exam-oriented tips and points"
+                  },
+                  memoryCues: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "Acronyms, mnemonics, or memory tricks"
+                  },
+                  vivaQuestions: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "Interactive oral prep questions"
+                  }
+                },
+                required: [
+                  "title",
+                  "summary",
+                  "keyConcepts",
+                  "definitions",
+                  "mechanisms",
+                  "examPoints",
+                  "memoryCues",
+                  "vivaQuestions"
+                ]
+              }
+            }
+          });
+          noteContent = response.text || "";
+          if (noteContent) {
+            successfulModel = mName;
+            console.log(`[STUDY NOTE DIAGNOSTIC] Gemini request succeeded ✓ (Model: ${mName}, Structured output returned, length: ${noteContent.length} chars)`);
+            break;
           }
-        });
-        noteContent = response.text || "";
-      } catch (err) {
-        console.error("Failed to generate note: ", err);
-        return res.status(500).json({ error: "Failed to generate personalized study note." });
+        } catch (err: any) {
+          lastNoteErr = err;
+          console.warn(`[STUDY NOTE DIAGNOSTIC] Model ${mName} failed ✗:`, err?.message || err);
+        }
       }
 
-      // Clean markdown JSON wrapper blocks
-      let jsonString = noteContent.trim();
-      if (jsonString.startsWith("```json")) {
-        jsonString = jsonString.substring(7);
+      if (!noteContent) {
+        console.error("[STUDY NOTE DIAGNOSTIC] Gemini request failed across all models ✗. Last error:", lastNoteErr);
+        return res.status(500).json({ error: lastNoteErr?.message || "Failed to generate personalized study note across all models. Please check your API quota or key." });
       }
-      if (jsonString.startsWith("```")) {
-        jsonString = jsonString.substring(3);
-      }
-      if (jsonString.endsWith("```")) {
-        jsonString = jsonString.substring(0, jsonString.length - 3);
-      }
-      jsonString = jsonString.trim();
 
-      let noteObj: any = {};
+      let noteObj: any;
       try {
-        noteObj = JSON.parse(jsonString);
-      } catch (jsonErr) {
-        console.error("JSON parsing of generated note failed, attempting regex extraction: ", jsonErr);
-        // Fallback fallback parser
-        noteObj = {
-          title: `Study Guide: ${question.substring(0, 30)}...`,
-          summary: "A review compiled from your questions on this topic.",
-          keyConcepts: [question],
-          definitions: [],
-          mechanisms: [],
-          examPoints: [],
-          memoryCues: [],
-          vivaQuestions: ["Explain the core concepts of this topic."]
-        };
+        noteObj = JSON.parse(noteContent);
+        console.log("[STUDY NOTE DIAGNOSTIC] Structured JSON response parsed successfully ✓");
+      } catch (jsonErr: any) {
+        console.error("[STUDY NOTE DIAGNOSTIC] Structured JSON parsing failed ✗:", jsonErr, "Raw output:", noteContent);
+        return res.status(500).json({ error: "Failed to parse structured study note response from AI." });
       }
+
+      const hasRequiredFields = noteObj && typeof noteObj.title === 'string' && typeof noteObj.summary === 'string';
+      if (!hasRequiredFields) {
+        console.error("[STUDY NOTE DIAGNOSTIC] StudyNote validation failed ✗ (Missing required title or summary fields in JSON)");
+        return res.status(500).json({ error: "Generated study note is missing required fields." });
+      }
+      console.log(`[STUDY NOTE DIAGNOSTIC] StudyNote validation succeeded ✓ (Title: '${noteObj.title}')`);
 
       const sourceTitle = sources.length > 0 ? sources[0].title : "General Knowledge";
 
-      // Return compiled note structure (client will persist upon explicit Save)
       const compiledNote = {
         userId,
-        title: noteObj.title || `Guide: ${question.substring(0, 40)}`,
-        summary: noteObj.summary || "Summary of study interaction",
+        title: noteObj.title,
+        summary: noteObj.summary,
         keyConcepts: noteObj.keyConcepts || [],
         definitions: noteObj.definitions || [],
         mechanisms: noteObj.mechanisms || [],
@@ -590,6 +673,7 @@ Rules for answering:
         isFavorite: false
       };
 
+      console.log("[STUDY NOTE DIAGNOSTIC] Server returning generated note successfully to frontend ✓");
       return res.json({
         success: true,
         note: {

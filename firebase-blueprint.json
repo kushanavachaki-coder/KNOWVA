@@ -1,0 +1,199 @@
+{
+  "entities": {
+    "Document": {
+      "title": "Document",
+      "description": "Metadata and parsed text content of study materials",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "User ID who uploaded the material"
+        },
+        "title": {
+          "type": "string",
+          "description": "File name or custom note title"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["pdf", "text"],
+          "description": "Type of document uploaded"
+        },
+        "content": {
+          "type": "string",
+          "description": "Raw extracted text content"
+        },
+        "fileSize": {
+          "type": "string",
+          "description": "Formatted file size string"
+        },
+        "pageCount": {
+          "type": "number",
+          "description": "Total pages in the PDF"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when document was indexed"
+        }
+      },
+      "required": ["userId", "title", "type", "content"]
+    },
+    "Chunk": {
+      "title": "Chunk",
+      "description": "Embedded text chunks of indexed documents for semantic RAG search",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID"
+        },
+        "documentId": {
+          "type": "string",
+          "description": "Document ID parent"
+        },
+        "text": {
+          "type": "string",
+          "description": "Chunk text body"
+        },
+        "pageNumber": {
+          "type": "number",
+          "description": "Source page number"
+        },
+        "embedding": {
+          "type": "array",
+          "description": "Generated embedding vector coefficients"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "documentId", "text", "pageNumber", "embedding"]
+    },
+    "Note": {
+      "title": "Note",
+      "description": "AI compiled structured study cards in notes library",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID"
+        },
+        "title": {
+          "type": "string",
+          "description": "Syllabus topic title"
+        },
+        "summary": {
+          "type": "string",
+          "description": "Executive synopsis of the study note"
+        },
+        "keyConcepts": {
+          "type": "array"
+        },
+        "definitions": {
+          "type": "array"
+        },
+        "mechanisms": {
+          "type": "array"
+        },
+        "examPoints": {
+          "type": "array"
+        },
+        "memoryCues": {
+          "type": "array"
+        },
+        "vivaQuestions": {
+          "type": "array"
+        },
+        "sourceTitle": {
+          "type": "string",
+          "description": "Title of source document or 'General Knowledge'"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "isFavorite": {
+          "type": "boolean"
+        }
+      },
+      "required": ["userId", "title", "summary"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Chat log entries for user and AI study copilot conversation",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID"
+        },
+        "sender": {
+          "type": "string",
+          "enum": ["user", "assistant", "system"]
+        },
+        "text": {
+          "type": "string",
+          "description": "Message content"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "sources": {
+          "type": "array"
+        },
+        "isExtraInfo": {
+          "type": "boolean"
+        }
+      },
+      "required": ["userId", "sender", "text", "timestamp"]
+    },
+    "Activity": {
+      "title": "Activity",
+      "description": "Logged user interactions with study material, QA, or note compilation",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["upload", "ask", "note_created"]
+        },
+        "description": {
+          "type": "string",
+          "description": "Activity detail description text"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "type", "description", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/documents/{documentId}": {
+      "schema": { "$ref": "#/entities/Document" },
+      "description": "Collection of parsed study documents"
+    },
+    "/chunks/{chunkId}": {
+      "schema": { "$ref": "#/entities/Chunk" },
+      "description": "Vector embedded slices of study documents for similarity matching"
+    },
+    "/notes/{noteId}": {
+      "schema": { "$ref": "#/entities/Note" },
+      "description": "Curated study notes cards"
+    },
+    "/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/Message" },
+      "description": "Chat dialogues logged inside session"
+    },
+    "/activity/{activityId}": {
+      "schema": { "$ref": "#/entities/Activity" },
+      "description": "Audit trails and stats of student sessions"
+    }
+  }
+}

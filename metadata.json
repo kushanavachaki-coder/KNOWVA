@@ -1,0 +1,6 @@
+{
+  "name": "Knowva",
+  "description": "An AI-powered study companion that helps students master their own study materials, track progress, and practice adaptive viva questioning.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Allow read/write access to documents collection
+    match /documents/{documentId} {
+      allow read, write: if true;
+    }
+    
+    // Allow read/write access to chunks collection
+    match /chunks/{chunkId} {
+      allow read, write: if true;
+    }
+    
+    // Allow read/write access to notes collection
+    match /notes/{noteId} {
+      allow read, write: if true;
+    }
+    
+    // Allow read/write access to messages collection
+    match /messages/{messageId} {
+      allow read, write: if true;
+    }
+
+    // Allow read/write access to activity logs collection
+    match /activity/{activityId} {
+      allow read, write: if true;
+    }
+  }
+}

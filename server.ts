@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { GoogleGenAI, Type } from "@google/genai";
 import * as admin from "firebase-admin";
+import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { AsyncLocalStorage } from "async_hooks";
 
@@ -256,9 +257,9 @@ const db = {
 let authAdmin: any = null;
 try {
   let app: any;
-  const adminAny = admin as any;
-  if (adminAny.apps.length > 0) {
-    app = adminAny.apps[0];
+  const existingApps = getApps();
+  if (existingApps.length > 0) {
+    app = existingApps[0];
     if (process.env.NODE_ENV !== "production") {
       console.log("[Knowva] Reusing existing Firebase Admin App.");
     }
@@ -272,15 +273,15 @@ try {
         firebaseConfig.projectId = serviceAccount.project_id;
       }
       
-      app = adminAny.initializeApp({
-        credential: adminAny.credential.cert(serviceAccount),
+      app = initializeApp({
+        credential: cert(serviceAccount),
         projectId: firebaseConfig.projectId
       });
       if (process.env.NODE_ENV !== "production") {
         console.log("[Knowva] Firebase Admin App initialized with service account from env.");
       }
     } else {
-      app = adminAny.initializeApp({
+      app = initializeApp({
         projectId: firebaseConfig.projectId
       });
       if (process.env.NODE_ENV !== "production") {

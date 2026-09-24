@@ -372,15 +372,12 @@ function chunkText(text: string, maxChunkSize = 800, overlap = 150): string[] {
 
 const app = express();
 
-async function startServer() {
-  const PORT = Number(process.env.PORT) || 3000;
+// Set limits higher to support large paste payloads and documents
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-  // Set limits higher to support large paste payloads and documents
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
-
-  // Authentication middleware to verify Firebase ID tokens securely
-  const requireAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+// Authentication middleware to verify Firebase ID tokens securely
+const requireAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ error: "Unauthorized: Missing Authorization header" });
@@ -1830,27 +1827,29 @@ GRADING CRITERIA:
 
   // --- DEV & PRODUCTION MIDDLEWARES ---
 
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
+  async function startServer() {
+    if (process.env.NODE_ENV !== "production") {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.join(process.cwd(), "dist");
+      app.use(express.static(distPath));
+      app.get("*", (req, res) => {
+        res.sendFile(path.join(distPath, "index.html"));
+      });
+    }
+
+    if (!process.env.VERCEL) {
+      const PORT = Number(process.env.PORT) || 3000;
+      app.listen(PORT, "0.0.0.0", () => {
+        console.log(`[Knowva] Server running on http://localhost:${PORT}`);
+      });
+    }
   }
 
-  if (!process.env.VERCEL) {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`[Knowva] Server running on http://localhost:${PORT}`);
-    });
-  }
-}
+  startServer();
 
-startServer();
-
-export default app;
+  export default app;

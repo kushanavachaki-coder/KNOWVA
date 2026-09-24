@@ -370,8 +370,9 @@ function chunkText(text: string, maxChunkSize = 800, overlap = 150): string[] {
   return chunks.filter(c => c.length > 30);
 }
 
+const app = express();
+
 async function startServer() {
-  const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
   // Set limits higher to support large paste payloads and documents
@@ -1843,9 +1844,13 @@ GRADING CRITERIA:
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[Knowva] Server running on http://localhost:${PORT}`);
-  });
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`[Knowva] Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
 startServer();
+
+export default app;

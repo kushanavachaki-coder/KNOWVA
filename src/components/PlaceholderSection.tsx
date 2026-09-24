@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { calculateStudyStreak } from '../utils/streakCalc';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -21,7 +22,8 @@ import {
   Sparkles,
   Info
 } from 'lucide-react';
-import { StudyMaterial, StudyNote } from '../types';
+import { StudyMaterial, StudyNote, Message } from '../types';
+import VivaSection from './VivaSection';
 
 interface PlaceholderSectionProps {
   type: 'viva' | 'progress' | 'notes';
@@ -31,6 +33,8 @@ interface PlaceholderSectionProps {
   onToggleFavoriteNote?: (id: string) => void;
   onNavigateToAsk: () => void;
   messagesCount: number;
+  messages?: Message[];
+  userId?: string;
 }
 
 export default function PlaceholderSection({ 
@@ -40,7 +44,9 @@ export default function PlaceholderSection({
   onRemoveStudyNote,
   onToggleFavoriteNote,
   onNavigateToAsk,
-  messagesCount
+  messagesCount,
+  messages = [],
+  userId = 'user_default'
 }: PlaceholderSectionProps) {
   const [selectedNote, setSelectedNote] = useState<StudyNote | null>(null);
   
@@ -59,110 +65,155 @@ export default function PlaceholderSection({
     hover: { y: -3, boxShadow: "0 10px 25px -5px rgba(14,165,233,0.04)", borderColor: "#bae6fd" }
   };
 
+  // Real data-driven Progress metric calculation
+  const progressMetrics = React.useMemo(() => {
+    if (type !== 'progress') return null;
+
+    const allMsgs = messages || [];
+
+    // Helper: format Date into local YYYY-MM-DD string
+    const toLocalDateStr = (d: Date | string | number) => {
+      const dateObj = new Date(d);
+      if (isNaN(dateObj.getTime())) return '';
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    // 1. Calculate unique active calendar dates
+    const activeDatesSet = new Set<string>();
+
+    allMsgs.forEach(m => {
+      const dStr = toLocalDateStr(m.timestamp);
+      if (dStr) activeDatesSet.add(dStr);
+    });
+
+    savedStudyNotes.forEach(n => {
+      const dStr = toLocalDateStr(n.createdAt);
+      if (dStr) activeDatesSet.add(dStr);
+    });
+
+    uploadedMaterials.forEach(mat => {
+      const dStr = toLocalDateStr(mat.uploadedAt);
+      if (dStr) activeDatesSet.add(dStr);
+    });
+
+    // 2. Calculate consecutive streak using shared calculation utility
+    const studyStreak = calculateStudyStreak(allMsgs, savedStudyNotes, uploadedMaterials);
+
+    const activeDaysCount = activeDatesSet.size;
+
+    // 3. Grounded Answer Rate (Syllabus Coverage)
+    // Filter model messages (sender === 'assistant' or sender === 'model')
+    const modelAnswers = allMsgs.filter(m => (m.sender as string) === 'assistant' || (m.sender as string) === 'model');
+    const totalAnswers = modelAnswers.length;
+    const groundedAnswers = modelAnswers.filter(m => !m.isExtraInfo).length;
+    const groundedRate = totalAnswers > 0 ? Math.round((groundedAnswers / totalAnswers) * 100) : null;
+
+    // 4. Learning Assets Collected across Saved Study Cards
+    const totalConcepts = savedStudyNotes.reduce((acc, note) => acc + (note.keyConcepts?.length || 0), 0);
+    const totalDefinitions = savedStudyNotes.reduce((acc, note) => acc + (note.definitions?.length || 0), 0);
+    const totalVivaQuestions = savedStudyNotes.reduce((acc, note) => acc + (note.vivaQuestions?.length || 0), 0);
+
+    // 5. Material Breakdown
+    const materialMap = new Map<string, {
+      title: string;
+      groundedQueries: number;
+      studyCards: number;
+      concepts: number;
+    }>();
+
+    // Populate with uploaded materials
+    uploadedMaterials.forEach(mat => {
+      materialMap.set(mat.name, {
+        title: mat.name,
+        groundedQueries: 0,
+        studyCards: 0,
+        concepts: 0
+      });
+    });
+
+    // Match saved notes to materials
+    savedStudyNotes.forEach(note => {
+      const src = note.sourceTitle || 'General Knowledge';
+      let foundKey = Array.from(materialMap.keys()).find(
+        k => k.toLowerCase() === src.toLowerCase() || k.toLowerCase().includes(src.toLowerCase()) || src.toLowerCase().includes(k.toLowerCase())
+      );
+      if (!foundKey && src !== 'General Knowledge') {
+        foundKey = src;
+        materialMap.set(src, {
+          title: src,
+          groundedQueries: 0,
+          studyCards: 0,
+          concepts: 0
+        });
+      }
+      if (foundKey) {
+        const entry = materialMap.get(foundKey)!;
+        entry.studyCards += 1;
+        entry.concepts += (note.keyConcepts?.length || 0);
+      }
+    });
+
+    // Match grounded queries to materials
+    allMsgs.forEach(m => {
+      if (m.sources && m.sources.length > 0) {
+        m.sources.forEach(s => {
+          if (!s.title) return;
+          const foundKey = Array.from(materialMap.keys()).find(
+            k => k.toLowerCase() === s.title.toLowerCase() || k.toLowerCase().includes(s.title.toLowerCase()) || s.title.toLowerCase().includes(k.toLowerCase())
+          );
+          if (foundKey) {
+            const entry = materialMap.get(foundKey)!;
+            entry.groundedQueries += 1;
+          }
+        });
+      }
+    });
+
+    const materialBreakdown = Array.from(materialMap.values());
+    const hasAnyData = uploadedMaterials.length > 0 || savedStudyNotes.length > 0 || messagesCount > 0;
+
+    return {
+      studyStreak,
+      activeDaysCount,
+      groundedRate,
+      groundedAnswers,
+      totalAnswers,
+      totalConcepts,
+      totalDefinitions,
+      totalVivaQuestions,
+      materialBreakdown,
+      hasAnyData
+    };
+  }, [type, messages, savedStudyNotes, uploadedMaterials, messagesCount]);
+
   // VIVA PRACTICE SECTION RENDER
   if (type === 'viva') {
     return (
-      <motion.div 
-        id="viva-section-container" 
-        variants={pageVariants}
-        initial="hidden"
-        animate="visible"
-        exit="exit"
-        className="max-w-xl mx-auto px-4 py-4 sm:py-8 space-y-6 pb-24 text-left font-sans"
-      >
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <motion.div 
-            animate={{ scale: [1, 1.04, 1], rotate: [0, 0.5, -0.5, 0] }}
-            transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
-            className="inline-flex items-center justify-center p-3 bg-sky-50 text-sky-600 rounded-2xl border border-sky-100 shadow-sm mb-1"
-          >
-            <Mic className="h-6 w-6" />
-          </motion.div>
-          <h1 className="text-lg font-bold text-slate-800 tracking-tight">Adaptive Oral Viva Drill</h1>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed font-semibold">
-            Practice spoken recall by responding to randomized verbal questioning based strictly on your source notes.
-          </p>
-        </div>
-
-        {/* Feature specifications block */}
-        <div className="grid grid-cols-1 gap-3">
-          <motion.div 
-            variants={cardHover}
-            whileHover="hover"
-            className="p-4 bg-white border border-slate-100 rounded-2xl space-y-2 shadow-sm"
-          >
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.4)]" />
-              <h3 className="font-extrabold text-[10px] text-slate-800 uppercase tracking-widest">
-                Targeted Oral Prompting
-              </h3>
-            </div>
-            <p className="text-xs text-slate-500 leading-relaxed font-semibold">
-              Knowva targets the specific assertions in your syllabus, generating verbal questions that challenge your technical terminology accuracy.
-            </p>
-          </motion.div>
-
-          <motion.div 
-            variants={cardHover}
-            whileHover="hover"
-            className="p-4 bg-white border border-slate-100 rounded-2xl space-y-2 shadow-sm"
-          >
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)]" />
-              <h3 className="font-extrabold text-[10px] text-slate-800 uppercase tracking-widest">
-                Weakness Decay Drill
-              </h3>
-            </div>
-            <p className="text-xs text-slate-500 leading-relaxed font-semibold">
-              If your review records show hesitations on any specific terms, the simulator initiates focused follow-up cycles on those knowledge gaps.
-            </p>
-          </motion.div>
-
-          <motion.div 
-            variants={cardHover}
-            whileHover="hover"
-            className="p-4 bg-white border border-slate-100 rounded-2xl space-y-2 shadow-sm"
-          >
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-              <h3 className="font-extrabold text-[10px] text-slate-800 uppercase tracking-widest">
-                Skeptical Examination Mode
-              </h3>
-            </div>
-            <p className="text-xs text-slate-500 leading-relaxed font-semibold">
-              To evaluate critical thinking, the simulated assistant occasionally asserts a deliberate, subtle error. Your task is to identify and correct it.
-            </p>
-          </motion.div>
-        </div>
-
-        {/* Action Panel */}
-        <div className="p-5 bg-white border border-slate-100 rounded-2xl text-center space-y-4 shadow-sm">
-          <div className="p-2 bg-sky-50 border border-sky-100 rounded-xl inline-block text-[10px] text-sky-700 font-extrabold tracking-wider uppercase">
-            Awaiting Speech Integration
-          </div>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed font-semibold">
-            Once you connect your voice recording, spoken answers will be evaluated for keyword mapping and precision score in real-time.
-          </p>
-          <div className="pt-1">
-            <motion.button 
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={onNavigateToAsk}
-              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-sky-500/10 border-none"
-            >
-              <span>Go to Ask Workspace</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </motion.button>
-          </div>
-        </div>
-      </motion.div>
+      <VivaSection 
+        userId={userId}
+        uploadedMaterials={uploadedMaterials}
+        onNavigateToAsk={onNavigateToAsk}
+      />
     );
   }
 
   // PROGRESS TRACKER SECTION RENDER
   if (type === 'progress') {
-    const studyStreak = uploadedMaterials.length > 0 || messagesCount > 0 ? 1 : 0;
+    const metrics = progressMetrics || {
+      studyStreak: 0,
+      activeDaysCount: 0,
+      groundedRate: null,
+      groundedAnswers: 0,
+      totalAnswers: 0,
+      totalConcepts: 0,
+      totalDefinitions: 0,
+      totalVivaQuestions: 0,
+      materialBreakdown: [],
+      hasAnyData: false
+    };
 
     return (
       <motion.div 
@@ -181,104 +232,151 @@ export default function PlaceholderSection({
           </div>
           <h1 className="text-lg font-bold text-slate-800 tracking-tight">Factual Progress Analytics</h1>
           <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed font-semibold">
-            Monitor study streaks, active definitions coverage, and estimated recall metrics.
+            Track real active study streaks, syllabus grounding coverage, and collected study card assets.
           </p>
         </div>
 
-        {/* Factual Study Stats */}
+        {/* Factual Study Stats Grid */}
         <div className="grid grid-cols-2 gap-3">
           <motion.div whileHover={{ y: -2 }} className="p-4 bg-white border border-slate-100 rounded-2xl text-center shadow-sm">
             <span className="text-[9px] text-slate-400 block uppercase font-extrabold mb-1 tracking-wider">Study Streak</span>
-            <span className="text-base font-bold text-slate-800">{studyStreak} Day</span>
+            <span className="text-base font-bold text-slate-800">{metrics.studyStreak} {metrics.studyStreak === 1 ? 'Day' : 'Days'}</span>
+            <span className="text-[9px] text-slate-400 block font-semibold mt-0.5">{metrics.activeDaysCount} Active {metrics.activeDaysCount === 1 ? 'Day' : 'Days'} Total</span>
           </motion.div>
 
           <motion.div whileHover={{ y: -2 }} className="p-4 bg-white border border-slate-100 rounded-2xl text-center shadow-sm">
             <span className="text-[9px] text-slate-400 block uppercase font-extrabold mb-1 tracking-wider">Asked Queries</span>
             <span className="text-base font-bold text-slate-800">{messagesCount}</span>
+            <span className="text-[9px] text-slate-400 block font-semibold mt-0.5">Submitted Q&A</span>
           </motion.div>
 
           <motion.div whileHover={{ y: -2 }} className="p-4 bg-white border border-slate-100 rounded-2xl text-center shadow-sm">
             <span className="text-[9px] text-slate-400 block uppercase font-extrabold mb-1 tracking-wider">Saved Cards</span>
             <span className="text-base font-bold text-slate-800">{savedStudyNotes.length}</span>
+            <span className="text-[9px] text-slate-400 block font-semibold mt-0.5">Compiled Flashcards</span>
           </motion.div>
 
           <motion.div whileHover={{ y: -2 }} className="p-4 bg-white border border-slate-100 rounded-2xl text-center shadow-sm">
             <span className="text-[9px] text-slate-400 block uppercase font-extrabold mb-1 tracking-wider">Active Uploads</span>
             <span className="text-base font-bold text-slate-800">{uploadedMaterials.length}</span>
+            <span className="text-[9px] text-slate-400 block font-semibold mt-0.5">Syllabus Sources</span>
           </motion.div>
         </div>
 
-        {/* Memory Strength Metrics */}
-        <div className="p-5 bg-white border border-slate-100 rounded-2xl space-y-4 shadow-sm">
-          <h3 className="text-[10px] font-extrabold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
-            <Target className="h-4 w-4 text-sky-500" />
-            <span>Active Memory Strength Metrics</span>
-          </h3>
-
-          <div className="space-y-3">
-            <div>
-              <div className="flex justify-between items-center text-[10px] text-slate-500 font-bold mb-1">
-                <span>ESTIMATED RETENTION DEPTH</span>
-                <span className="text-sky-600 font-bold">85%</span>
-              </div>
-              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                <motion.div 
-                  initial={{ width: 0 }} 
-                  animate={{ width: "85%" }} 
-                  transition={{ duration: 1, ease: "easeOut" }} 
-                  className="h-full bg-gradient-to-r from-sky-500 to-blue-500 rounded-full" 
-                />
-              </div>
+        {!metrics.hasAnyData ? (
+          /* Empty State for Brand New Users */
+          <div className="p-6 bg-white border border-slate-100 rounded-2xl text-center space-y-3 shadow-sm">
+            <div className="inline-flex items-center justify-center p-3 bg-sky-50 text-sky-600 rounded-xl mb-1">
+              <Sparkles className="h-5 w-5" />
             </div>
-
-            <div>
-              <div className="flex justify-between items-center text-[10px] text-slate-500 font-bold mb-1">
-                <span>VIVA COMPREHENSION RATING</span>
-                <span className="text-blue-600 font-bold">72%</span>
-              </div>
-              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                <motion.div 
-                  initial={{ width: 0 }} 
-                  animate={{ width: "72%" }} 
-                  transition={{ duration: 1.2, ease: "easeOut" }} 
-                  className="h-full bg-gradient-to-r from-blue-500 to-sky-400 rounded-full" 
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center text-[10px] text-slate-500 font-bold mb-1">
-                <span>RECALL ACCURACY RATE</span>
-                <span className="text-emerald-600 font-bold">90%</span>
-              </div>
-              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                <motion.div 
-                  initial={{ width: 0 }} 
-                  animate={{ width: "90%" }} 
-                  transition={{ duration: 0.8, ease: "easeOut" }} 
-                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full" 
-                />
-              </div>
-            </div>
+            <h3 className="text-sm font-bold text-slate-800">No Study Activity Recorded Yet</h3>
+            <p className="text-xs text-slate-500 max-w-xs mx-auto font-semibold leading-relaxed">
+              Upload syllabus materials, ask questions in workspace, or compile study notes to build your factual learning progress.
+            </p>
+            <motion.button 
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onNavigateToAsk}
+              className="mt-2 px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-sky-500/10 border-none"
+            >
+              <span>Start Studying</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </motion.button>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Grounding & Asset Coverage Metrics */}
+            <div className="p-5 bg-white border border-slate-100 rounded-2xl space-y-4 shadow-sm">
+              <h3 className="text-[10px] font-extrabold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
+                <Target className="h-4 w-4 text-sky-500" />
+                <span>Syllabus Grounding & Asset Metrics</span>
+              </h3>
 
-        {/* Recall Stability Curves */}
-        <div className="p-5 bg-white border border-slate-100 rounded-2xl text-left space-y-3 shadow-sm">
-          <h3 className="text-[10px] font-extrabold text-sky-600 uppercase tracking-widest flex items-center gap-1.5">
-            <Sparkles className="h-4 w-4" />
-            <span>Memory Retention Estimations</span>
-          </h3>
+              <div className="space-y-4">
+                {/* Grounded Answer Rate */}
+                <div>
+                  <div className="flex justify-between items-center text-[10px] text-slate-500 font-bold mb-1">
+                    <span>STUDY MATERIAL GROUNDING RATE</span>
+                    <span className="text-sky-600 font-bold">
+                      {metrics.groundedRate !== null ? `${metrics.groundedRate}%` : "Not enough data"}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }} 
+                      animate={{ width: metrics.groundedRate !== null ? `${metrics.groundedRate}%` : "0%" }} 
+                      transition={{ duration: 0.8, ease: "easeOut" }} 
+                      className="h-full bg-gradient-to-r from-sky-500 to-blue-500 rounded-full" 
+                    />
+                  </div>
+                  <span className="text-[9px] text-slate-400 font-semibold mt-1 block">
+                    {metrics.groundedAnswers} of {metrics.totalAnswers} AI answers grounded in uploaded syllabus sources
+                  </span>
+                </div>
 
-          <p className="text-xs text-slate-500 leading-relaxed font-semibold">
-            Knowva analyzes query complexity and study material depth to project retention decline intervals over time.
-          </p>
+                {/* Real Asset Counts Grid */}
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+                  <div className="p-2.5 bg-slate-50/70 rounded-xl text-center">
+                    <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Concepts Collected</span>
+                    <span className="text-sm font-extrabold text-slate-800">{metrics.totalConcepts}</span>
+                  </div>
 
-          <div className="p-3 bg-sky-50/50 border border-sky-100 rounded-2xl text-[10px] text-slate-600 space-y-1 font-semibold leading-relaxed">
-            <span className="font-extrabold text-sky-700 block mb-0.5">Awaiting Additional Study Checkpoints</span>
-            Please upload syllabus files and compile study cards. Our analytical engine requires active data history points to model subject weaknesses accurately.
-          </div>
-        </div>
+                  <div className="p-2.5 bg-slate-50/70 rounded-xl text-center">
+                    <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Definitions Built</span>
+                    <span className="text-sm font-extrabold text-slate-800">{metrics.totalDefinitions}</span>
+                  </div>
+
+                  <div className="p-2.5 bg-slate-50/70 rounded-xl text-center">
+                    <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Viva Drill Questions</span>
+                    <span className="text-sm font-extrabold text-slate-800">{metrics.totalVivaQuestions}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Syllabus Material Breakdown */}
+            <div className="p-5 bg-white border border-slate-100 rounded-2xl text-left space-y-3 shadow-sm">
+              <h3 className="text-[10px] font-extrabold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
+                <BookOpen className="h-4 w-4 text-sky-500" />
+                <span>Syllabus Material Breakdown</span>
+              </h3>
+
+              {metrics.materialBreakdown.length > 0 ? (
+                <div className="space-y-2.5 pt-1">
+                  {metrics.materialBreakdown.map((mat, idx) => (
+                    <div key={idx} className="p-3 bg-slate-50/80 border border-slate-100 rounded-xl flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs font-bold text-slate-800 truncate block">{mat.title}</span>
+                        <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-500 font-semibold">
+                          <span>{mat.groundedQueries} Grounded Queries</span>
+                          <span>•</span>
+                          <span>{mat.studyCards} Saved Cards</span>
+                          <span>•</span>
+                          <span>{mat.concepts} Concepts</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+                  No syllabus materials uploaded yet. Upload a PDF or paste text in the Study Materials tab to view material-level breakdown.
+                </p>
+              )}
+            </div>
+
+            {/* Viva & Recall Accuracy Note */}
+            <div className="p-4 bg-sky-50/50 border border-sky-100 rounded-2xl text-left space-y-1.5 shadow-sm">
+              <div className="flex items-center gap-1.5 text-sky-700 font-bold text-[11px]">
+                <Info className="h-4 w-4 text-sky-500 shrink-0" />
+                <span>Recall & Viva Performance Ratings</span>
+              </div>
+              <p className="text-xs text-slate-600 font-semibold leading-relaxed">
+                Spoken recall accuracy and oral viva comprehension metrics will unlock when spoken drill test sessions are completed. Knowva displays only verified factual progress.
+              </p>
+            </div>
+          </>
+        )}
 
       </motion.div>
     );

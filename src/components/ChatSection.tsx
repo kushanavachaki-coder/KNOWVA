@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { fetchWithTimeout } from '../utils/apiTimeout';
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -45,18 +46,24 @@ export default function ChatSection({
   const [compilingNoteId, setCompilingNoteId] = useState<string | null>(null);
 
   const handleCreateStudyNoteDirect = async (msg: Message) => {
-    console.log("[DIAGNOSTIC] Create Study Notes clicked ✓");
+    if (import.meta.env.DEV) {
+      console.log("[DIAGNOSTIC] Create Study Notes clicked ✓");
+    }
     if (compilingNoteId) {
-      console.log("[DIAGNOSTIC] Create Study Notes clicked ✗ (Already compiling)");
+      if (import.meta.env.DEV) {
+        console.log("[DIAGNOSTIC] Create Study Notes clicked ✗ (Already compiling)");
+      }
       return;
     }
     setCompilingNoteId(msg.id);
 
     // Verify if source answer exists
-    if (!msg || !msg.text) {
-      console.error("[DIAGNOSTIC] Source answer received ✗ (Message text is missing/empty)");
-    } else {
-      console.log("[DIAGNOSTIC] Source answer received ✓ (Message content length: " + msg.text.length + " characters)");
+    if (import.meta.env.DEV) {
+      if (!msg || !msg.text) {
+        console.error("[DIAGNOSTIC] Source answer received ✗ (Message text is missing/empty)");
+      } else {
+        console.log("[DIAGNOSTIC] Source answer received ✓ (Message content length: " + msg.text.length + " characters)");
+      }
     }
 
     try {
@@ -72,52 +79,45 @@ export default function ChatSection({
         }
       }
 
-      console.log("[DIAGNOSTIC] Study-note generation started ✓ (Querying backend compile API /api/notes/generate)");
-      let res: Response | null = null;
-      let lastFetchErr: any = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          res = await fetch("/api/notes/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              question: questionText,
-              answer: msg.text,
-              sources: msg.sources || [],
-              userId: userId
-            })
-          });
-          break;
-        } catch (fetchErr: any) {
-          lastFetchErr = fetchErr;
-          console.warn(`[DIAGNOSTIC] Fetch attempt ${attempt + 1} failed (${fetchErr.message}). Retrying...`);
-          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
-        }
+      if (import.meta.env.DEV) {
+        console.log("[DIAGNOSTIC] Study-note generation started ✓ (Querying backend compile API /api/notes/generate)");
       }
-
-      if (!res) {
-        throw lastFetchErr || new Error("Failed to fetch study notes generation endpoint.");
-      }
+      const res = await fetchWithTimeout("/api/notes/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: questionText,
+          answer: msg.text,
+          sources: msg.sources || [],
+          userId: userId
+        })
+      }, 60000);
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         const errMsg = errData.error || `HTTP ${res.status} ${res.statusText}`;
-        console.error("[DIAGNOSTIC] Study-note generation completed ✗ (API returned error: " + errMsg + ")");
+        if (import.meta.env.DEV) {
+          console.error("[DIAGNOSTIC] Study-note generation completed ✗ (API returned error: " + errMsg + ")");
+        }
         throw new Error(errMsg);
       }
 
       const data = await res.json();
-      console.log("[DIAGNOSTIC] Study-note generation completed ✓ (API succeeded)");
+      if (import.meta.env.DEV) {
+        console.log("[DIAGNOSTIC] Study-note generation completed ✓ (API succeeded)");
+      }
 
       if (data.success && data.note) {
         const note = data.note;
         
         // Verify generated note contains actual content
-        const hasContent = note.title && note.summary;
-        if (hasContent) {
-          console.log("[DIAGNOSTIC] Generated note contains actual content ✓ (Title: '" + note.title + "', Summary length: " + note.summary.length + ")");
-        } else {
-          console.warn("[DIAGNOSTIC] Generated note contains actual content ✗ (Generated fields are missing or empty)");
+        if (import.meta.env.DEV) {
+          const hasContent = note.title && note.summary;
+          if (hasContent) {
+            console.log("[DIAGNOSTIC] Generated note contains actual content ✓ (Summary length: " + note.summary.length + ")");
+          } else {
+            console.warn("[DIAGNOSTIC] Generated note contains actual content ✗ (Generated fields are missing or empty)");
+          }
         }
 
         setNoteTitle(note.title || `Study Notes: ${questionText}`);
@@ -131,13 +131,19 @@ export default function ChatSection({
         
         // Open the Save to Study Notes popup!
         setActiveCreatorMessage(msg);
-        console.log("[DIAGNOSTIC] Save dialog opened ✓ (Active creator state is set to show UI modal)");
+        if (import.meta.env.DEV) {
+          console.log("[DIAGNOSTIC] Save dialog opened ✓ (Active creator state is set to show UI modal)");
+        }
       } else {
-        console.error("[DIAGNOSTIC] Generated note contains actual content ✗ (Response data format was invalid or lacked note fields)");
+        if (import.meta.env.DEV) {
+          console.error("[DIAGNOSTIC] Generated note contains actual content ✗ (Response data format was invalid or lacked note fields)");
+        }
       }
     } catch (err: any) {
-      console.error("[DIAGNOSTIC] Study-note generation started ✗ (Exception occurred: " + err.message + ")");
-      console.error(err);
+      if (import.meta.env.DEV) {
+        console.error("[DIAGNOSTIC] Study-note generation started ✗ (Exception occurred: " + err.message + ")");
+        console.error(err);
+      }
       alert(err.message || "Could not compile study card automatically.");
     } finally {
       setCompilingNoteId(null);
@@ -235,7 +241,9 @@ export default function ChatSection({
       isFavorite: false
     };
 
-    console.log("[DIAGNOSTIC] Save dialog clicked. Initiating onSaveStudyNote call...");
+    if (import.meta.env.DEV) {
+      console.log("[DIAGNOSTIC] Save dialog clicked. Initiating onSaveStudyNote call...");
+    }
     onSaveStudyNote(newNote);
     setShowSaveSuccess(true);
     

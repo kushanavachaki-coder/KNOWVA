@@ -3,16 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { fetchWithTimeout } from './utils/apiTimeout';
 import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import Header from './components/Header';
 import HomeSection from './components/HomeSection';
 import StudyMaterialSection from './components/StudyMaterialSection';
 import ChatSection from './components/ChatSection';
 import PlaceholderSection from './components/PlaceholderSection';
 import ProfileSection from './components/ProfileSection';
+import SmartRevisionSection from './components/SmartRevisionSection';
 import { TabType, StudyMaterial, Message, StudyNote, User, UserSettings } from './types';
-import { Sparkles, Activity, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, Database, Cpu, Brain, Check, Info } from 'lucide-react';
-import { db, handleFirestoreError, OperationType } from './lib/firebase';
+import { Sparkles, Activity, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, Database, Cpu, Brain, Check, Info, Trash2 } from 'lucide-react';
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { db, auth, handleFirestoreError, OperationType } from './lib/firebase';
 import { 
   collection, 
   query, 
@@ -32,10 +36,18 @@ export default function App() {
   const [materials, setMaterials] = useState<StudyMaterial[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [savedStudyNotes, setSavedStudyNotes] = useState<StudyNote[]>([]);
+  const [showClearModal, setShowClearModal] = useState<boolean>(false);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [localAuthError, setLocalAuthError] = useState<string | null>(null);
+  const [localAuthLoading, setLocalAuthLoading] = useState(false);
 
   // Real user and settings templates for Firebase readiness
   const [user, setUser] = useState<User>({
-    id: 'u-temp-123',
+    id: '',
     name: 'Kushana Vachaki',
     email: 'kushanavachaki@gmail.com',
     studyLevel: 'Medical Student',
@@ -45,7 +57,7 @@ export default function App() {
   });
 
   const [settings, setSettings] = useState<UserSettings>({
-    userId: 'u-temp-123',
+    userId: '',
     answerStyle: 'academic',
     examOriented: true,
     responseType: 'detailed',
@@ -84,8 +96,73 @@ export default function App() {
   const [showDiagPanel, setShowDiagPanel] = useState<boolean>(true);
   const [showChunkPreviews, setShowChunkPreviews] = useState<boolean>(false);
 
+  // Listen for real Firebase auth state changes
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      try {
+        if (currentUser) {
+          let cachedUser: any = {};
+          try {
+            const data = localStorage.getItem('knowva_user_v3');
+            if (data) cachedUser = JSON.parse(data);
+          } catch (e) {}
+
+          setUser({
+            id: currentUser.uid,
+            name: currentUser.displayName || cachedUser.name || 'Kushana Vachaki',
+            email: currentUser.email || cachedUser.email || 'kushanavachaki@gmail.com',
+            studyLevel: cachedUser.studyLevel || 'Medical Student',
+            subjects: cachedUser.subjects || ['Human Anatomy', 'Pathology', 'Cellular Physiology'],
+            bio: cachedUser.bio || 'Medical scholar specializing in cardiac pathophysiology and systemic metabolic pathways.',
+            createdAt: cachedUser.createdAt ? new Date(cachedUser.createdAt) : new Date()
+          });
+          setSettings(prev => ({ ...prev, userId: currentUser.uid }));
+          setAuthError(null);
+          setAuthLoading(false);
+        } else {
+          setUser(prev => ({ ...prev, id: '' }));
+          setSettings(prev => ({ ...prev, userId: '' }));
+          setAuthError(null);
+          setAuthLoading(false);
+        }
+      } catch (err: any) {
+        if (import.meta.env.DEV) {
+          console.log("Firebase Auth state info:", err);
+        }
+        setAuthError("An unexpected authentication error occurred. Please check your connection and reload.");
+        setAuthLoading(false);
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLocalAuthError(null);
+      setLocalAuthLoading(true);
+      const provider = new GoogleAuthProvider();
+      const cred = await signInWithPopup(auth, provider);
+      setUser(prev => ({
+        ...prev,
+        id: cred.user.uid,
+        email: cred.user.email || prev.email,
+        name: cred.user.displayName || prev.name
+      }));
+      setSettings(prev => ({ ...prev, userId: cred.user.uid }));
+      setAuthError(null);
+    } catch (err: any) {
+      console.error("Google Sign-In failed:", err);
+      setLocalAuthError(err.message || "Google Authentication failed. Please try again.");
+    } finally {
+      setLocalAuthLoading(false);
+    }
+  };
+
   // Live real-time Firestore synchronization listeners
   useEffect(() => {
+    if (authLoading || !user.id) return;
+
     // 1. Documents Sync
     const qDocs = query(collection(db, "documents"), where("userId", "==", user.id));
     const unsubscribeDocs = onSnapshot(qDocs, (snapshot) => {
@@ -110,10 +187,14 @@ export default function App() {
     });
 
     // 2. Study Notes Sync
-    console.log("[DIAGNOSTIC] Initiating notes collection subscription...");
+    if (import.meta.env.DEV) {
+      console.log("[DIAGNOSTIC] Initiating notes collection subscription...");
+    }
     const qNotes = query(collection(db, "notes"), where("userId", "==", user.id));
     const unsubscribeNotes = onSnapshot(qNotes, (snapshot) => {
-      console.log("[DIAGNOSTIC] Notes collection queried ✓ (Snapshot trigger received with " + snapshot.size + " docs)");
+      if (import.meta.env.DEV) {
+        console.log("[DIAGNOSTIC] Notes collection queried ✓ (Snapshot trigger received with " + snapshot.size + " docs)");
+      }
       const notes: StudyNote[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
@@ -135,15 +216,19 @@ export default function App() {
       });
       notes.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       
-      if (notes.length > 0) {
-        console.log("[DIAGNOSTIC] Saved Study Card found ✓ (Total loaded cards in app state: " + notes.length + ")");
-      } else {
-        console.log("[DIAGNOSTIC] Saved Study Card found ✗ (No cards currently match filters in Firestore collection 'notes')");
+      if (import.meta.env.DEV) {
+        if (notes.length > 0) {
+          console.log("[DIAGNOSTIC] Saved Study Card found ✓ (Total loaded cards in app state: " + notes.length + ")");
+        } else {
+          console.log("[DIAGNOSTIC] Saved Study Card found ✗ (No cards currently match filters in Firestore collection 'notes')");
+        }
       }
 
       setSavedStudyNotes(notes);
     }, (err) => {
-      console.error("[DIAGNOSTIC] Notes collection queried ✗ (Snapshot subscription failed: " + err.message + ")");
+      if (import.meta.env.DEV) {
+        console.error("[DIAGNOSTIC] Notes collection queried ✗ (Snapshot subscription failed: " + err.message + ")");
+      }
       handleFirestoreError(err, OperationType.LIST, "notes");
     });
 
@@ -173,15 +258,20 @@ export default function App() {
       const savedUser = localStorage.getItem('knowva_user_v3');
       if (savedUser) {
         const parsed = JSON.parse(savedUser);
-        setUser({
+        setUser(prev => ({
           ...parsed,
-          createdAt: new Date(parsed.createdAt)
-        });
+          id: prev.id, // Keep authoritative Firebase auth UID
+          createdAt: new Date(parsed.createdAt || Date.now())
+        }));
       }
 
       const savedSettings = localStorage.getItem('knowva_settings_v3');
       if (savedSettings) {
-        setSettings(JSON.parse(savedSettings));
+        const parsedSettings = JSON.parse(savedSettings);
+        setSettings(prev => ({
+          ...parsedSettings,
+          userId: prev.userId // Keep authoritative Firebase auth UID
+        }));
       }
     } catch (e) {
       console.error("Error loading offline user profiles:", e);
@@ -192,13 +282,15 @@ export default function App() {
       unsubscribeNotes();
       unsubscribeMessages();
     };
-  }, [user.id]);
+  }, [user.id, authLoading]);
 
   // Firestore & API active mutators
   const handleAddMaterial = (newMaterial: StudyMaterial) => {
     // We already let StudyMaterialSection post the document directly, 
     // but we can add this fallback updater for maximum consistency.
-    console.log("Indexed document synchronized to UI: ", newMaterial.name);
+    if (import.meta.env.DEV) {
+      console.log("Indexed document synchronized to UI");
+    }
   };
 
   const handleRemoveMaterial = async (id: string) => {
@@ -224,7 +316,9 @@ export default function App() {
 
   const handleSaveStudyNote = async (newNote: StudyNote) => {
     const path = "notes";
-    console.log("[DIAGNOSTIC] Firestore save attempted ✓ (Path: 'notes' for userId: '" + user.id + "')");
+    if (import.meta.env.DEV) {
+      console.log("[DIAGNOSTIC] Firestore save attempted ✓ (Path: 'notes')");
+    }
     try {
       const docRef = await addDoc(collection(db, path), {
         userId: user.id,
@@ -240,7 +334,9 @@ export default function App() {
         createdAt: new Date().toISOString(),
         isFavorite: false
       });
-      console.log("[DIAGNOSTIC] Firestore save succeeded ✓ (Document ID: " + docRef.id + ")");
+      if (import.meta.env.DEV) {
+        console.log("[DIAGNOSTIC] Firestore save succeeded ✓ (Document ID: " + docRef.id + ")");
+      }
 
       // Log activity
       await addDoc(collection(db, "activity"), {
@@ -250,7 +346,9 @@ export default function App() {
         timestamp: new Date().toISOString()
       });
     } catch (e: any) {
-      console.error("[DIAGNOSTIC] Firestore save attempted ✗ (Failed to add doc to collection: " + e.message + ")");
+      if (import.meta.env.DEV) {
+        console.error("[DIAGNOSTIC] Firestore save attempted ✗ (Failed to add doc to collection: " + e.message + ")");
+      }
       handleFirestoreError(e, OperationType.CREATE, path);
     }
   };
@@ -289,9 +387,14 @@ export default function App() {
     localStorage.setItem('knowva_settings_v3', JSON.stringify(updated));
   };
 
-  const handleSignOut = () => {
-    if (confirm("Sign out of current local session? (Offline metrics will remain in local database sandbox)")) {
-      setActiveTab('home');
+  const handleSignOut = async () => {
+    if (confirm("Are you sure you want to sign out of your Knowva study session?")) {
+      try {
+        await signOut(auth);
+        setActiveTab('home');
+      } catch (e: any) {
+        console.error("Sign-out failed:", e);
+      }
     }
   };
 
@@ -317,31 +420,16 @@ export default function App() {
         text: m.text
       }));
 
-      // 3. Post to custom Express dev/production backend API with retry
-      let res: Response | null = null;
-      let lastFetchErr: any = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          res = await fetch("/api/chat/ask", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              question: text.trim(),
-              history: conversationHistory,
-              userId: user.id
-            })
-          });
-          break;
-        } catch (fetchErr: any) {
-          lastFetchErr = fetchErr;
-          console.warn(`[DIAGNOSTIC] Chat ask fetch attempt ${attempt + 1} failed (${fetchErr.message}). Retrying...`);
-          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
-        }
-      }
-
-      if (!res) {
-        throw lastFetchErr || new Error("Failed to fetch chat ask endpoint.");
-      }
+      // 3. Post to custom Express backend API with 60s timeout
+      const res = await fetchWithTimeout("/api/chat/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: text.trim(),
+          history: conversationHistory,
+          userId: user.id
+        })
+      }, 60000);
 
       if (!res.ok) {
         const errData = await res.json();
@@ -391,10 +479,12 @@ export default function App() {
     }
   };
 
-  const handleClearChat = async () => {
-    if (!confirm("Clear active study dialogue?")) {
-      return;
-    }
+  const handleClearChat = () => {
+    setShowClearModal(true);
+  };
+
+  const confirmClearChat = async () => {
+    setShowClearModal(false);
     try {
       const q = query(collection(db, "messages"), where("userId", "==", user.id));
       const snap = await getDocs(q);
@@ -408,8 +498,176 @@ export default function App() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center space-y-4 font-sans text-center">
+        <div className="h-12 w-12 bg-gradient-to-tr from-sky-500 to-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-sky-500/20 animate-pulse">
+          <Sparkles className="h-6 w-6 text-white" />
+        </div>
+        <p className="text-xs font-bold text-slate-600">Initializing Knowva Study Workspace...</p>
+      </div>
+    );
+  }
+
+  if (!user.id) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4 font-sans text-center">
+        <div className="bg-white border border-slate-100 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-[0_8px_30px_rgb(0,0,0,0.02)] space-y-6">
+          
+          {/* Header & Logo */}
+          <div className="space-y-2 text-center">
+            <div className="h-12 w-12 bg-gradient-to-tr from-sky-500 to-blue-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-md shadow-sky-500/10">
+              <Sparkles className="h-6 w-6" />
+            </div>
+            <h2 className="text-xl font-black text-slate-800">Welcome to Knowva</h2>
+            <p className="text-xs text-slate-400 font-medium leading-relaxed">
+              Your intelligent syllabus-grounded medical companion.
+            </p>
+          </div>
+
+          {/* Error Feedback */}
+          {(localAuthError || authError) && (
+            <div className="bg-rose-50 border border-rose-100/80 rounded-2xl p-3 text-left">
+              <p className="text-[10px] text-rose-600 font-bold leading-relaxed whitespace-pre-line">
+                {localAuthError || authError}
+              </p>
+            </div>
+          )}
+
+          {/* Email / Password Form */}
+          <form 
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setLocalAuthError(null);
+              setLocalAuthLoading(true);
+              try {
+                if (isRegisterMode) {
+                  await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+                } else {
+                  await signInWithEmailAndPassword(auth, authEmail, authPassword);
+                }
+              } catch (err: any) {
+                console.error("Authentication failed:", err);
+                setLocalAuthError(err.message || "Authentication failed. Please verify your credentials.");
+              } finally {
+                setLocalAuthLoading(false);
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-3.5 text-xs">
+              <div className="space-y-1 text-left">
+                <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider pl-1">Email Address</label>
+                <input 
+                  type="email" 
+                  value={authEmail} 
+                  required
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  placeholder="name@university.edu"
+                  className="w-full bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-sky-500 focus:bg-white transition-all font-semibold"
+                />
+              </div>
+
+              <div className="space-y-1 text-left">
+                <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider pl-1">Password</label>
+                <input 
+                  type="password" 
+                  value={authPassword} 
+                  required
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-sky-500 focus:bg-white transition-all font-semibold"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={localAuthLoading}
+              className="w-full py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold text-xs transition-all shadow-md shadow-sky-500/10 cursor-pointer disabled:opacity-50"
+            >
+              {localAuthLoading ? "Processing..." : (isRegisterMode ? "Create Account" : "Sign In")}
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-slate-100" />
+            <span className="text-[10px] font-bold text-slate-400">OR</span>
+            <div className="flex-1 h-px bg-slate-100" />
+          </div>
+
+          {/* Social Google SignIn */}
+          <button 
+            type="button"
+            onClick={handleGoogleSignIn}
+            className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm cursor-pointer"
+          >
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+              <path fill="#EA4335" d="M12.24 10.285V14.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.859-3.578-7.859-8s3.53-8 7.859-8c2.46 0 4.102 1.025 5.043 1.926l3.227-3.11c-2.071-1.926-4.957-3.11-8.27-3.11-6.627 0-12 5.373-12 12s5.373 12 12 12c6.923 0 11.52-4.843 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z"/>
+            </svg>
+            Continue with Google
+          </button>
+
+          {/* Switch Register/Login Mode */}
+          <div className="pt-2 text-center">
+            <button 
+              type="button"
+              onClick={() => {
+                setIsRegisterMode(!isRegisterMode);
+                setLocalAuthError(null);
+              }}
+              className="text-xs text-sky-600 font-bold hover:underline transition-all"
+            >
+              {isRegisterMode ? "Already have an account? Sign In" : "Don't have an account? Create Account"}
+            </button>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-700 flex flex-col antialiased pb-16 md:pb-0 font-sans">
+      
+      {/* Custom Clear Dialogue Confirmation Modal */}
+      {showClearModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="bg-white border border-slate-100 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-left font-sans"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl border border-rose-100">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900">Clear Study Dialogue?</h3>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              The current conversation will be removed from the active study workspace, while saved notes and study materials remain safe.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                onClick={() => setShowClearModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmClearChat}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-sm"
+              >
+                Clear Dialogue
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
       
       {/* Dynamic responsive navigation header */}
       <Header 
@@ -481,155 +739,6 @@ export default function App() {
               onRemoveMaterial={handleRemoveMaterial}
             />
 
-            {/* RAG REAL-TIME DIAGNOSTIC PANEL */}
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 text-left shadow-[0_2px_8px_rgba(0,0,0,0.015)] space-y-3 font-sans">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                  <Activity className="h-4 w-4 text-sky-500 animate-pulse" />
-                  <span>🛠️ RAG PIPELINE DIAGNOSTICS (REAL-TIME)</span>
-                </div>
-                <button 
-                  onClick={() => setShowDiagPanel(!showDiagPanel)}
-                  className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded transition-all cursor-pointer"
-                >
-                  {showDiagPanel ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </button>
-              </div>
-
-              {showDiagPanel && (
-                <div className="space-y-3.5">
-                  {/* Pipeline Errors */}
-                  {ragDiagnostics.errorStage && (
-                    <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-[10px] text-rose-700 font-semibold space-y-1">
-                      <div className="flex items-center gap-1 text-xs text-rose-800 font-bold uppercase tracking-wider">
-                        <AlertTriangle className="h-4 w-4" />
-                        <span>PIPELINE FAILURE STAGE: {ragDiagnostics.errorStage}</span>
-                      </div>
-                      <p>{ragDiagnostics.errorMessage || "An unexpected error occurred in the RAG pipeline."}</p>
-                    </div>
-                  )}
-
-                  {/* Flow Steps Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                    {/* Ingestion status */}
-                    <div className="p-3.5 bg-slate-50/50 border border-slate-100/60 rounded-xl space-y-2">
-                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5">
-                        <Database className="h-3.5 w-3.5 text-sky-500" />
-                        <span>1. Indexing & Storage Ingest</span>
-                      </div>
-                      <ul className="space-y-1.5 text-[10px] text-slate-500 font-medium">
-                        <li className="flex items-center justify-between">
-                          <span>PDF Received:</span>
-                          <span className="font-extrabold flex items-center gap-1">
-                            {ragDiagnostics.pdfReceived ? (
-                              <span className="text-emerald-600 flex items-center gap-0.5"><Check className="h-3 w-3" /> Yes</span>
-                            ) : <span className="text-slate-400">—</span>}
-                          </span>
-                        </li>
-                        <li className="flex items-center justify-between">
-                          <span>Text Extracted:</span>
-                          <span className="font-extrabold flex items-center gap-1">
-                            {ragDiagnostics.textExtracted ? (
-                              <span className="text-emerald-600 flex items-center gap-0.5"><Check className="h-3 w-3" /> {ragDiagnostics.charCount} chars</span>
-                            ) : <span className="text-slate-400">—</span>}
-                          </span>
-                        </li>
-                        <li className="flex items-center justify-between">
-                          <span>Chunks Created:</span>
-                          <span className="font-extrabold flex items-center gap-1">
-                            {ragDiagnostics.chunksCreated ? (
-                              <span className="text-emerald-600 flex items-center gap-0.5"><Check className="h-3 w-3" /> {ragDiagnostics.chunkCount} chunks</span>
-                            ) : <span className="text-slate-400">—</span>}
-                          </span>
-                        </li>
-                        <li className="flex items-center justify-between">
-                          <span>Embeddings Generated:</span>
-                          <span className="font-extrabold flex items-center gap-1">
-                            {ragDiagnostics.embeddingsGenerated ? (
-                              <span className="text-emerald-600 flex items-center gap-0.5"><Check className="h-3 w-3" /> {ragDiagnostics.embeddingCount} vectors</span>
-                            ) : <span className="text-slate-400">—</span>}
-                          </span>
-                        </li>
-                        <li className="flex items-center justify-between">
-                          <span>Firestore Storage Path:</span>
-                          <span className="font-extrabold flex items-center gap-1">
-                            {ragDiagnostics.firestoreStorage ? (
-                              <span className="text-sky-600 flex items-center gap-0.5"><Database className="h-3 w-3" /> /chunks</span>
-                            ) : <span className="text-slate-400">—</span>}
-                          </span>
-                        </li>
-                      </ul>
-                    </div>
-
-                    {/* Retrieval status */}
-                    <div className="p-3.5 bg-slate-50/50 border border-slate-100/60 rounded-xl space-y-2">
-                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-100 pb-1.5">
-                        <Brain className="h-3.5 w-3.5 text-sky-500" />
-                        <span>2. Semantics & Context Query</span>
-                      </div>
-                      <ul className="space-y-1.5 text-[10px] text-slate-500 font-medium">
-                        <li className="flex flex-col gap-0.5">
-                          <span>Last Searched Question:</span>
-                          <span className="font-bold text-slate-700 truncate block max-w-full italic">
-                            {ragDiagnostics.lastQuestion ? `"${ragDiagnostics.lastQuestion}"` : "None yet"}
-                          </span>
-                        </li>
-                        <li className="flex items-center justify-between">
-                          <span>Similarity Model:</span>
-                          <span className="font-extrabold text-slate-600">gemini-embedding-2</span>
-                        </li>
-                        <li className="flex items-center justify-between">
-                          <span>Retrieved Chunk Count:</span>
-                          <span className="font-extrabold flex items-center gap-1">
-                            {ragDiagnostics.chunksRetrievedCount !== undefined ? (
-                              <span className="text-emerald-600 flex items-center gap-0.5"><Check className="h-3 w-3" /> {ragDiagnostics.chunksRetrievedCount} chunks</span>
-                            ) : <span className="text-slate-400">—</span>}
-                          </span>
-                        </li>
-                        <li className="flex items-center justify-between">
-                          <span>Grounding Output Status:</span>
-                          <span className="font-extrabold flex items-center gap-1">
-                            {ragDiagnostics.groundedStatus === "study_material" ? (
-                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 px-1.5 py-0.5 rounded text-[9px]">📚 Grounded in Syllabus</span>
-                            ) : ragDiagnostics.groundedStatus === "fallback_knowledge" ? (
-                              <span className="bg-amber-50 text-amber-700 border border-amber-100 px-1.5 py-0.5 rounded text-[9px]">⚠️ Fallback Supplemental</span>
-                            ) : <span className="text-slate-400">—</span>}
-                          </span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  {/* Chunks preview list */}
-                  {ragDiagnostics.previews && ragDiagnostics.previews.length > 0 && (
-                    <div className="border border-slate-100 rounded-xl overflow-hidden">
-                      <button 
-                        onClick={() => setShowChunkPreviews(!showChunkPreviews)}
-                        className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 text-[10px] font-bold text-slate-700 transition-colors cursor-pointer text-left"
-                      >
-                        <span className="flex items-center gap-1">
-                          <Cpu className="h-3.5 w-3.5 text-sky-500" />
-                          <span>Inspect Retrieved Text Chunks ({ragDiagnostics.previews.length})</span>
-                        </span>
-                        {showChunkPreviews ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      </button>
-
-                      {showChunkPreviews && (
-                        <div className="p-2 bg-white space-y-2 border-t border-slate-100 divide-y divide-slate-50 max-h-48 overflow-y-auto">
-                          {ragDiagnostics.previews.map((preview, i) => (
-                            <div key={i} className="pt-2 first:pt-0 text-[9px] text-slate-600 font-medium leading-relaxed font-sans">
-                              {preview}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                </div>
-              )}
-            </div>
-
             {/* Chat Area */}
             <div className="flex-1 bg-white border border-slate-100 rounded-2xl flex flex-col min-h-[420px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.01)]">
               <ChatSection 
@@ -645,10 +754,20 @@ export default function App() {
           </div>
         )}
 
+        {/* SMART REVISION */}
+        {activeTab === 'revision' && (
+          <SmartRevisionSection 
+            userId={user.id}
+            materials={materials} 
+            onBack={() => setActiveTab('home')}
+          />
+        )}
+
         {/* VIVA */}
         {activeTab === 'viva' && (
           <PlaceholderSection 
             type="viva" 
+            userId={user?.id || 'guest_user'}
             uploadedMaterials={materials}
             savedStudyNotes={savedStudyNotes}
             onRemoveStudyNote={handleRemoveStudyNote}
@@ -666,6 +785,7 @@ export default function App() {
             onRemoveStudyNote={handleRemoveStudyNote}
             onNavigateToAsk={() => setActiveTab('ask')}
             messagesCount={messages.filter(m => m.sender === 'user').length}
+            messages={messages}
           />
         )}
 

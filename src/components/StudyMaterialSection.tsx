@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { fetchWithTimeout } from '../utils/apiTimeout';
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -139,8 +140,8 @@ export default function StudyMaterialSection({
         setUploadProgress(progress);
       });
 
-      // Submit page chunks to indexer API
-      const res = await fetch("/api/documents/process", {
+      // Submit page chunks to indexer API with 60s timeout
+      const res = await fetchWithTimeout("/api/documents/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -149,7 +150,7 @@ export default function StudyMaterialSection({
           pages,
           userId: userId
         })
-      });
+      }, 60000);
 
       if (!res.ok) {
         const errData = await res.json();
@@ -190,7 +191,7 @@ export default function StudyMaterialSection({
     setIsProcessing(true);
 
     try {
-      const res = await fetch("/api/documents/process", {
+      const res = await fetchWithTimeout("/api/documents/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -199,7 +200,7 @@ export default function StudyMaterialSection({
           content: pastedContent.trim(),
           userId: userId
         })
-      });
+      }, 60000);
 
       if (!res.ok) {
         const errData = await res.json();
@@ -278,7 +279,7 @@ export default function StudyMaterialSection({
             {uploadProgress !== null ? (
               <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl text-center">
                 <Loader2 className="h-5 w-5 text-sky-500 animate-spin mx-auto mb-2" />
-                <span className="text-[10px] font-bold text-slate-800 block">Indexing "{uploadingName}"...</span>
+                <span className="text-[10px] font-bold text-slate-800 block truncate px-2">Indexing "{uploadingName}"...</span>
                 <div className="w-full max-w-xs bg-slate-200 rounded-full h-1 mt-2 mx-auto overflow-hidden">
                   <div className="bg-sky-500 h-full rounded-full" style={{ width: `${uploadProgress}%` }}></div>
                 </div>
@@ -371,10 +372,10 @@ export default function StudyMaterialSection({
               <motion.div 
                 whileHover={{ scale: 1.01 }}
                 key={m.id} 
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200/60 rounded-xl text-[11px] text-slate-700 max-w-[200px]"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200/60 rounded-xl text-[11px] text-slate-700 max-w-[200px] min-w-0"
               >
                 <FileText className={`h-3.5 w-3.5 shrink-0 ${m.type === 'pdf' ? 'text-red-500' : 'text-amber-500'}`} />
-                <span className="truncate max-w-[120px] font-semibold text-slate-700">{m.name}</span>
+                <span className="truncate min-w-0 font-semibold text-slate-700">{m.name}</span>
                 <button
                   onClick={() => onRemoveMaterial(m.id)}
                   className="text-slate-400 hover:text-red-600 transition-colors ml-1 font-bold focus:outline-none text-sm cursor-pointer"

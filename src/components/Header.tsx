@@ -13,7 +13,8 @@ import {
   BookOpen, 
   Bell,
   Sparkles,
-  User as UserIcon
+  User as UserIcon,
+  Brain
 } from 'lucide-react';
 import { TabType } from '../types';
 
@@ -25,11 +26,12 @@ interface HeaderProps {
 
 export default function Header({ activeTab, onTabChange, materialsCount }: HeaderProps) {
   
-  // The five primary areas defined in requirements
+  // The primary areas including Revision
   const navItems = [
     { id: 'home' as TabType, label: 'Home', icon: Home },
     { id: 'ask' as TabType, label: 'Ask', icon: MessageSquare },
     { id: 'viva' as TabType, label: 'Viva', icon: Mic },
+    { id: 'revision' as TabType, label: 'Revision', icon: Brain },
     { id: 'progress' as TabType, label: 'Progress', icon: BarChart2 },
     { id: 'notes' as TabType, label: 'Notes', icon: BookOpen },
   ];
@@ -84,6 +86,8 @@ export default function Header({ activeTab, onTabChange, materialsCount }: Heade
           >
             <Bell className="h-4 w-4" />
           </button>
+
+
 
           {/* Avatar Profile Trigger */}
           <button

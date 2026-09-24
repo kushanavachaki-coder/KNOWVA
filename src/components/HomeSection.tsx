@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { calculateStudyStreak } from '../utils/streakCalc';
 import React from 'react';
 import { motion } from 'motion/react';
 import { 
@@ -21,7 +22,8 @@ import {
   BookMarked,
   CheckCircle,
   HelpCircle,
-  Clock
+  Clock,
+  Brain
 } from 'lucide-react';
 import { TabType, StudyMaterial, StudyNote } from '../types';
 
@@ -49,8 +51,7 @@ export default function HomeSection({
   const questionsAskedCount = messages.filter(m => m.sender === 'user').length;
   const notesCreatedCount = savedStudyNotes.length;
   const materialsUploadedCount = materials.length;
-  const vivaSessionsCount = materials.length > 0 ? 1 : 0;
-  const studyStreak = materialsUploadedCount > 0 || questionsAskedCount > 0 ? 3 : 1; 
+  const studyStreak = calculateStudyStreak(messages, savedStudyNotes, materials); 
 
   const latestMaterial = materials.length > 0 ? materials[materials.length - 1] : null;
 
@@ -109,7 +110,7 @@ export default function HomeSection({
         </motion.div>
       </motion.div>
 
-      {/* 2. VISUALLY APPEALING PROGRESS SUMMARY */}
+      {/* 2. REAL ACTIVITY SUMMARY (NO FAKE RETENTION/XP/LEVEL) */}
       <motion.div 
         variants={itemVariants}
         className="bg-gradient-to-br from-slate-900 to-blue-950 text-white p-5 rounded-2xl relative overflow-hidden shadow-xl"
@@ -120,75 +121,70 @@ export default function HomeSection({
         <div className="space-y-4 relative">
           <div className="flex justify-between items-center">
             <span className="text-[10px] font-extrabold tracking-widest text-cyan-300 uppercase block">
-              Weekly Knowledge Summary
+              Study Activity Overview
             </span>
             <span className="text-[10px] font-semibold bg-sky-500/20 text-cyan-200 border border-sky-500/30 px-2 py-0.5 rounded-full">
-              Level 4
+              {materialsUploadedCount > 0 ? `${materialsUploadedCount} Materials Indexed` : 'No Materials'}
             </span>
           </div>
 
-          <div className="flex items-end justify-between">
-            <div className="space-y-1">
-              <span className="text-2xl font-black tracking-tight block">84%</span>
-              <span className="text-[10px] text-slate-300 font-medium block">Average Syllabus Retention</span>
+          {materialsUploadedCount === 0 && questionsAskedCount === 0 && notesCreatedCount === 0 ? (
+            <div className="py-2 space-y-1">
+              <p className="text-xs text-slate-300 font-medium">
+                No learning activity recorded yet. Upload study materials or ask questions to populate your analytics.
+              </p>
             </div>
-            
-            {/* Miniature custom micro-graph visual */}
-            <div className="flex items-end gap-1 h-12 pr-1">
-              {[30, 45, 60, 50, 75, 90, 84].map((h, i) => (
-                <div 
-                  key={i} 
-                  className={`w-1.5 rounded-t-sm transition-all duration-500 ${
-                    i === 6 ? 'bg-cyan-400 h-[84%]' : 'bg-sky-500/30'
-                  }`} 
-                  style={{ height: `${h}%` }}
-                />
-              ))}
+          ) : (
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              <div className="bg-white/10 p-2.5 rounded-xl text-center">
+                <span className="text-lg font-black text-white block">{materialsUploadedCount}</span>
+                <span className="text-[9px] text-cyan-200 font-bold uppercase tracking-wider block">Materials</span>
+              </div>
+              <div className="bg-white/10 p-2.5 rounded-xl text-center">
+                <span className="text-lg font-black text-white block">{questionsAskedCount}</span>
+                <span className="text-[9px] text-cyan-200 font-bold uppercase tracking-wider block">Queries</span>
+              </div>
+              <div className="bg-white/10 p-2.5 rounded-xl text-center">
+                <span className="text-lg font-black text-white block">{notesCreatedCount}</span>
+                <span className="text-[9px] text-cyan-200 font-bold uppercase tracking-wider block">Study Notes</span>
+              </div>
             </div>
-          </div>
-
-          {/* Interactive Progress bar */}
-          <div className="space-y-1.5 pt-1">
-            <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-              <motion.div 
-                initial={{ width: 0 }} 
-                animate={{ width: "84%" }} 
-                transition={{ duration: 1, ease: "easeOut" }}
-                className="h-full bg-gradient-to-r from-cyan-400 to-sky-500 rounded-full" 
-              />
-            </div>
-            <div className="flex justify-between text-[9px] text-slate-300 font-medium">
-              <span>Goal: 95% Retention</span>
-              <span>120 XP gained</span>
-            </div>
-          </div>
+          )}
         </div>
       </motion.div>
 
-      {/* 3. TODAY'S STUDY FOCUS */}
+      {/* 3. SMART REVISION ENTRY CARD (REPLACING FAKE TOPIC) */}
       <motion.div variants={itemVariants} className="space-y-2">
-        <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-1">
-          Today's Study Focus
-        </h3>
+        <div className="flex justify-between items-center px-1">
+          <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+            Active Recall & Revision
+          </h3>
+          <button 
+            onClick={() => onNavigate('revision')}
+            className="text-[10px] font-bold text-sky-600 flex items-center gap-0.5 hover:underline"
+          >
+            Smart Revision <ChevronRight className="h-3 w-3" />
+          </button>
+        </div>
         
-        <div className="bg-white border border-slate-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+        <div className="bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-2xl p-4 flex items-center justify-between shadow-md shadow-sky-500/10">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center">
-              <Target className="h-5 w-5" />
+            <div className="h-10 w-10 rounded-xl bg-white/20 text-white flex items-center justify-center shrink-0">
+              <Brain className="h-5 w-5" />
             </div>
-            <div className="space-y-0.5">
-              <h4 className="text-xs font-bold text-slate-800">Cardiovascular Pathophysiology</h4>
-              <p className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
-                <Clock className="h-3 w-3 text-slate-400" />
-                <span>30-min active recall recommended</span>
+            <div className="space-y-0.5 text-left">
+              <h4 className="text-xs font-bold">Smart Revision</h4>
+              <p className="text-[10px] text-sky-100 font-medium">
+                Targeted active recall based on your actual study material and history.
               </p>
             </div>
           </div>
           <button 
-            onClick={() => onNavigate('viva')}
-            className="p-1 text-slate-400 hover:text-sky-600 transition-colors"
+            onClick={() => onNavigate('revision')}
+            className="px-3 py-2 bg-white text-blue-600 hover:bg-slate-50 text-xs font-bold rounded-xl shadow-sm transition-all shrink-0 cursor-pointer flex items-center gap-1"
           >
-            <ChevronRight className="h-5 w-5" />
+            <span>Start</span>
+            <ArrowRight className="h-3 w-3" />
           </button>
         </div>
       </motion.div>
@@ -199,15 +195,15 @@ export default function HomeSection({
           Continue Studying
         </h3>
 
-        <div className="bg-gradient-to-br from-sky-500 to-blue-600 text-white p-4.5 rounded-2xl space-y-4 shadow-md shadow-sky-500/10">
+        <div className="bg-white border border-slate-100 p-4.5 rounded-2xl space-y-4 shadow-sm">
           <div className="space-y-1 text-left">
-            <span className="text-[9px] font-extrabold tracking-widest text-cyan-300 uppercase block">
+            <span className="text-[9px] font-extrabold tracking-widest text-sky-600 uppercase block">
               Active Source Document
             </span>
-            <h3 className="text-sm font-bold truncate">
+            <h3 className="text-sm font-bold truncate text-slate-800">
               {latestMaterial ? latestMaterial.name : "Cellular & Molecular Biology Basics"}
             </h3>
-            <p className="text-[10px] text-sky-100 font-medium">
+            <p className="text-[10px] text-slate-500 font-medium">
               {latestMaterial 
                 ? `Indexed on ${new Date(latestMaterial.uploadedAt).toLocaleDateString()} • ${latestMaterial.fileSize || 'Pasted text'}` 
                 : "No study notes connected yet."}
@@ -215,14 +211,14 @@ export default function HomeSection({
           </div>
 
           <div className="flex items-center justify-between pt-1">
-            <span className="text-[10px] bg-white/10 text-white px-2.5 py-1 rounded-lg border border-white/15 font-semibold">
+            <span className="text-[10px] bg-sky-50 text-sky-700 px-2.5 py-1 rounded-lg border border-sky-100 font-semibold">
               {latestMaterial ? "Ready for practicing" : "Requires active doc"}
             </span>
             <motion.button
               whileHover={{ x: 3 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => onNavigate('ask')}
-              className="px-3.5 py-1.5 bg-white text-blue-600 hover:bg-slate-50 text-xs font-bold rounded-lg shadow-sm flex items-center gap-1 cursor-pointer"
+              className="px-3.5 py-1.5 bg-sky-600 text-white hover:bg-sky-500 text-xs font-bold rounded-lg shadow-sm flex items-center gap-1 cursor-pointer"
             >
               <span>Resume</span>
               <ArrowRight className="h-3 w-3" />
@@ -300,78 +296,7 @@ export default function HomeSection({
         </div>
       </motion.div>
 
-      {/* 6. CURRENT WEAK TOPICS / FOCUS TOPICS */}
-      <motion.div variants={itemVariants} className="space-y-2">
-        <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-1">
-          Syllabus Focus Domains
-        </h3>
-        
-        <div className="bg-white border border-slate-100 rounded-2xl p-4 space-y-3.5 shadow-sm">
-          {materials.length === 0 ? (
-            <p className="text-[11px] text-slate-500 leading-relaxed font-semibold text-center py-2">
-              Import course materials to see weak/focus areas here.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-[11px]">
-                <div className="flex items-center gap-1.5 font-bold text-slate-700">
-                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
-                  <span>Cardiac Action Potentials</span>
-                </div>
-                <span className="text-red-600 font-extrabold bg-red-50 border border-red-100/50 px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-wider">
-                  Needs Review
-                </span>
-              </div>
-              
-              <div className="flex items-center justify-between text-[11px]">
-                <div className="flex items-center gap-1.5 font-bold text-slate-700">
-                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
-                  <span>Krebs Cycle Intermediates</span>
-                </div>
-                <span className="text-amber-600 font-extrabold bg-amber-50 border border-amber-100/50 px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-wider">
-                  Medium Recall
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between text-[11px]">
-                <div className="flex items-center gap-1.5 font-bold text-slate-700">
-                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                  <span>Cell Membrane Transport</span>
-                </div>
-                <span className="text-emerald-600 font-extrabold bg-emerald-50 border border-emerald-100/50 px-2 py-0.5 rounded-lg text-[9px] uppercase tracking-wider">
-                  Mastered
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      </motion.div>
-
-      {/* 7. UPCOMING / RECOMMENDED REVISION */}
-      <motion.div variants={itemVariants} className="space-y-2">
-        <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-1">
-          Recommended Revision
-        </h3>
-
-        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
-          <div className="flex items-start gap-3 text-xs">
-            <CheckCircle className="h-4 w-4 text-sky-500 mt-0.5 shrink-0" />
-            <div className="space-y-0.5 text-left">
-              <strong className="text-slate-800 block">Space-decay checkpoint: ATP Synthesis</strong>
-              <p className="text-[10px] text-slate-500 font-medium">Memory curve suggests reviewing this notes card today for long term consolidation.</p>
-            </div>
-          </div>
-          
-          <button
-            onClick={() => onNavigate('notes')}
-            className="w-full py-2 bg-white hover:bg-slate-100 text-sky-600 border border-slate-200/60 rounded-xl text-xs font-bold transition-all cursor-pointer text-center"
-          >
-            Review Study Notes
-          </button>
-        </div>
-      </motion.div>
-
-      {/* 8. STUDY STATS ROW */}
+      {/* 6. HISTORICAL ACCOMPLISHMENTS */}
       <motion.div variants={itemVariants} className="space-y-2">
         <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-1">
           Historical Accomplishments

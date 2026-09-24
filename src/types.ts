@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type TabType = 'home' | 'ask' | 'viva' | 'progress' | 'notes' | 'profile' | 'settings';
+export type TabType = 'home' | 'ask' | 'viva' | 'progress' | 'notes' | 'profile' | 'settings' | 'revision';
 
 /**
  * User Profile & Account Data
@@ -133,9 +133,28 @@ export interface StudySession {
   activeTopic?: string;
 }
 
-/**
- * Adaptive Viva practicing sessions
- */
+export interface RevisionConcept {
+  name: string;
+  reason?: string;
+  explanation?: string;
+  why?: string;
+  quickReminder?: string;
+  priority?: 'high' | 'medium';
+}
+
+export interface RevisionPlan {
+  concepts: RevisionConcept[];
+}
+
+export interface SmartRevisionSession {
+  id: string;
+  userId: string;
+  materialId: string;
+  materialTitle: string;
+  duration: number;
+  startTime: Date;
+  plan?: RevisionPlan;
+}
 export interface VivaSession {
   id: string;
   userId: string;

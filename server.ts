@@ -3,33 +3,297 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
-import { initializeApp } from "firebase/app";
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy, 
-  limit,
-  serverTimestamp,
-  doc,
-  updateDoc
-} from "firebase/firestore";
+import * as admin from "firebase-admin";
+import { getAuth } from "firebase-admin/auth";
+import { AsyncLocalStorage } from "async_hooks";
+
+// Global error handlers to prevent silent Cloud Run crashes
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception thrown:', error);
+});
+
+// AsyncLocalStorage to maintain user identity token per request context safely
+const authContextStore = new AsyncLocalStorage<{ token: string; userId: string }>();
 
 // Read Firebase config
-const configPath = path.join(process.cwd(), "firebase-applet-config.json");
 let firebaseConfig: any = {};
-if (fs.existsSync(configPath)) {
-  firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+try {
+  let configPath = path.join(process.cwd(), "firebase-applet-config.json");
+  if (!fs.existsSync(configPath)) {
+    configPath = path.join(__dirname, "firebase-applet-config.json");
+  }
+  if (fs.existsSync(configPath)) {
+    try {
+      firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    } catch (e) {
+      console.error("Failed to parse firebase-applet-config.json:", e);
+    }
+  }
+} catch (configErr) {
+  console.error("Failed to read firebase config:", configErr);
 }
 
-// Initialize Firebase App
-const firebaseApp = initializeApp(firebaseConfig);
+if (!firebaseConfig.projectId) {
+  firebaseConfig = {
+    projectId: process.env.VITE_FIREBASE_PROJECT_ID || "ai-studio-knowva-fallback",
+    firestoreDatabaseId: "ai-studio-knowva-da295151-ab5e-46d4-908c-7aea652a9874"
+  };
+}
 
-// Initialize Firestore
-const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId || "(default)");
+// Custom REST API Firestore engine to communicate securely on behalf of each user
+function toFirestoreValue(val: any): any {
+  if (typeof val === "string") return { stringValue: val };
+  if (typeof val === "boolean") return { booleanValue: val };
+  if (typeof val === "number") {
+    if (Number.isInteger(val)) return { integerValue: String(val) };
+    return { doubleValue: val };
+  }
+  if (Array.isArray(val)) {
+    return { arrayValue: { values: val.map(toFirestoreValue) } };
+  }
+  if (val === null) return { nullValue: null };
+  if (typeof val === "object") {
+    const fields: any = {};
+    for (const [k, v] of Object.entries(val)) {
+      fields[k] = toFirestoreValue(v);
+    }
+    return { mapValue: { fields } };
+  }
+  return { stringValue: String(val) };
+}
+
+function fromFirestoreValue(fVal: any): any {
+  if (!fVal) return null;
+  if ("stringValue" in fVal) return fVal.stringValue;
+  if ("booleanValue" in fVal) return fVal.booleanValue;
+  if ("integerValue" in fVal) return parseInt(fVal.integerValue, 10);
+  if ("doubleValue" in fVal) return fVal.doubleValue;
+  if ("arrayValue" in fVal) {
+    return (fVal.arrayValue.values || []).map(fromFirestoreValue);
+  }
+  if ("mapValue" in fVal) {
+    const obj: any = {};
+    const fields = fVal.mapValue.fields || {};
+    for (const [k, v] of Object.entries(fields)) {
+      obj[k] = fromFirestoreValue(v);
+    }
+    return obj;
+  }
+  if ("nullValue" in fVal) return null;
+  return null;
+}
+
+function buildWhereClause(filters: Array<{ field: string; op: string; value: any }>) {
+  if (filters.length === 0) return undefined;
+  
+  const mapOp = (op: string) => {
+    if (op === "==" || op === "EQUAL") return "EQUAL";
+    if (op === ">") return "GREATER_THAN";
+    if (op === ">=") return "GREATER_THAN_OR_EQUAL";
+    if (op === "<") return "LESS_THAN";
+    if (op === "<=") return "LESS_THAN_OR_EQUAL";
+    return op;
+  };
+
+  const buildFilter = (f: { field: string; op: string; value: any }) => {
+    return {
+      fieldFilter: {
+        field: { fieldPath: f.field },
+        op: mapOp(f.op),
+        value: toFirestoreValue(f.value)
+      }
+    };
+  };
+
+  if (filters.length === 1) {
+    return buildFilter(filters[0]);
+  }
+
+  return {
+    compositeFilter: {
+      op: "AND",
+      filters: filters.map(buildFilter)
+    }
+  };
+}
+
+class RestDocumentSnapshot {
+  constructor(public id: string, private _data: any) {}
+  data() {
+    return this._data;
+  }
+}
+
+class RestQuerySnapshot {
+  constructor(public docs: RestDocumentSnapshot[]) {}
+  get size() {
+    return this.docs.length;
+  }
+  get empty() {
+    return this.docs.length === 0;
+  }
+  forEach(callback: (doc: RestDocumentSnapshot) => void) {
+    this.docs.forEach(callback);
+  }
+}
+
+const FieldValue = {
+  serverTimestamp() {
+    return new Date().toISOString();
+  }
+};
+
+class RestCollectionReference {
+  constructor(private collectionName: string, private token: string) {}
+
+  where(field: string, op: string, value: any) {
+    return new RestQueryReference(this.collectionName, this.token, [{ field, op, value }]);
+  }
+
+  async add(data: any) {
+    const projectId = firebaseConfig.projectId;
+    const databaseId = firebaseConfig.firestoreDatabaseId;
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/${this.collectionName}`;
+    
+    const fields: any = {};
+    for (const [k, v] of Object.entries(data)) {
+      fields[k] = toFirestoreValue(v);
+    }
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${this.token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ fields })
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`RestCollectionReference.add failed: ${res.status} ${errText}`);
+      throw new Error(`Firestore REST Write failed: ${res.status} ${errText}`);
+    }
+
+    const responseData = await res.json();
+    const id = responseData.name.split("/").pop();
+    return { id };
+  }
+}
+
+class RestQueryReference {
+  constructor(
+    private collectionName: string,
+    private token: string,
+    private filters: Array<{ field: string; op: string; value: any }>
+  ) {}
+
+  where(field: string, op: string, value: any) {
+    return new RestQueryReference(this.collectionName, this.token, [...this.filters, { field, op, value }]);
+  }
+
+  async get() {
+    const projectId = firebaseConfig.projectId;
+    const databaseId = firebaseConfig.firestoreDatabaseId;
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents:runQuery`;
+
+    const queryBody = {
+      structuredQuery: {
+        from: [{ collectionId: this.collectionName }],
+        where: buildWhereClause(this.filters)
+      }
+    };
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${this.token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(queryBody)
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`RestQueryReference.get failed: ${res.status} ${errText}`);
+      throw new Error(`Firestore REST Query failed: ${res.status} ${errText}`);
+    }
+
+    const results = await res.json();
+    if (!Array.isArray(results)) {
+      return new RestQuerySnapshot([]);
+    }
+
+    const docs = results
+      .filter(r => r.document)
+      .map(r => {
+        const id = r.document.name.split("/").pop();
+        const data: any = {};
+        const fields = r.document.fields || {};
+        for (const [k, v] of Object.entries(fields)) {
+          data[k] = fromFirestoreValue(v);
+        }
+        return new RestDocumentSnapshot(id, data);
+      });
+
+    return new RestQuerySnapshot(docs);
+  }
+}
+
+// Global db definition replacing the firebase-admin db instance
+const db = {
+  collection(collectionName: string) {
+    const store = authContextStore.getStore();
+    if (!store?.token) {
+      throw new Error("No active authenticated context found for Firestore access.");
+    }
+    return new RestCollectionReference(collectionName, store.token);
+  }
+};
+
+let authAdmin: any = null;
+try {
+  let app: any;
+  const adminAny = admin as any;
+  if (adminAny.apps.length > 0) {
+    app = adminAny.apps[0];
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[Knowva] Reusing existing Firebase Admin App.");
+    }
+  } else {
+    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    if (serviceAccountJson) {
+      const serviceAccount = JSON.parse(serviceAccountJson);
+      
+      // Update firebaseConfig.projectId to match service account project id
+      if (serviceAccount.project_id) {
+        firebaseConfig.projectId = serviceAccount.project_id;
+      }
+      
+      app = adminAny.initializeApp({
+        credential: adminAny.credential.cert(serviceAccount),
+        projectId: firebaseConfig.projectId
+      });
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Knowva] Firebase Admin App initialized with service account from env.");
+      }
+    } else {
+      app = adminAny.initializeApp({
+        projectId: firebaseConfig.projectId
+      });
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Knowva] Firebase Admin App initialized for Auth verification.");
+      }
+    }
+  }
+  authAdmin = getAuth(app);
+} catch (fbErr: any) {
+  // Prevent printing credentials or private keys, keep errors clean and safe
+  console.error("[Knowva] Warning: Firebase Admin Auth initialization encountered an issue:", fbErr?.message || fbErr);
+}
 
 // Initialize Gemini SDK (lazily initialized inside handlers or at start)
 const apiKey = process.env.GEMINI_API_KEY;
@@ -108,18 +372,43 @@ function chunkText(text: string, maxChunkSize = 800, overlap = 150): string[] {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Set limits higher to support large paste payloads and documents
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+  // Authentication middleware to verify Firebase ID tokens securely
+  const requireAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Unauthorized: Missing Authorization header" });
+    }
+
+    const token = authHeader.substring(7);
+    try {
+      const decodedToken = await authAdmin.verifyIdToken(token);
+      const userId = decodedToken.uid;
+      (req as any).user = {
+        uid: userId,
+        email: decodedToken.email
+      };
+      authContextStore.run({ token, userId }, () => {
+        next();
+      });
+    } catch (err: any) {
+      console.error("Firebase ID token verification failed:", err);
+      return res.status(401).json({ error: `Unauthorized: Invalid token: ${err.message}` });
+    }
+  };
+
   // --- API ENDPOINTS ---
 
   // 1. Process Uploaded/Pasted Document
-  app.post("/api/documents/process", async (req, res) => {
+  app.post("/api/documents/process", requireAuth, async (req, res) => {
     try {
-      const { title, type, content, pages, userId = "student-user" } = req.body;
+      const { title, type, content, pages } = req.body;
+      const userId = (req as any).user.uid;
 
       if (!title) {
         return res.status(400).json({ error: "Title is required" });
@@ -164,11 +453,13 @@ async function startServer() {
       }
 
       // 1. Save Document record to Firestore
-      console.log(`[RAG INGEST DIAGNOSTIC 1/5] PDF / Document Received: "${title}" (userId: "${userId}")`);
-      console.log(`[RAG INGEST DIAGNOSTIC 2/5] PDF Text Extracted successfully. Character count: ${docFullText.length}`);
-      console.log(`[RAG INGEST DIAGNOSTIC 3/5] Chunking completed. Total chunks created: ${rawChunks.length}`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[RAG INGEST DIAGNOSTIC 1/5] PDF / Document Received`);
+        console.log(`[RAG INGEST DIAGNOSTIC 2/5] PDF Text Extracted successfully. Character count: ${docFullText.length}`);
+        console.log(`[RAG INGEST DIAGNOSTIC 3/5] Chunking completed. Total chunks created: ${rawChunks.length}`);
+      }
 
-      const docRef = await addDoc(collection(db, "documents"), {
+      const docRef = await db.collection("documents").add({
         userId,
         title,
         type,
@@ -178,10 +469,14 @@ async function startServer() {
         createdAt: new Date().toISOString()
       });
 
-      console.log(`[RAG INGEST DIAGNOSTIC 5/5] Document master metadata written to Firestore collection "documents". ID: ${docRef.id}`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[RAG INGEST DIAGNOSTIC 5/5] Document master metadata written to Firestore collection "documents". ID: ${docRef.id}`);
+      }
 
       // 2. Generate embeddings for each chunk and save to Firestore
-      console.log(`[RAG INGEST DIAGNOSTIC 4/5] Initiating Gemini Embeddings. Model: "gemini-embedding-2"`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[RAG INGEST DIAGNOSTIC 4/5] Initiating Gemini Embeddings. Model: "gemini-embedding-2"`);
+      }
       const processedChunks: any[] = [];
       const batchSize = 10;
       
@@ -215,7 +510,9 @@ async function startServer() {
         }
       }
 
-      console.log(`[RAG INGEST DIAGNOSTIC] Successfully generated embeddings for ${processedChunks.length}/${rawChunks.length} chunks.`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[RAG INGEST DIAGNOSTIC] Successfully generated embeddings for ${processedChunks.length}/${rawChunks.length} chunks.`);
+      }
 
       if (processedChunks.length === 0) {
         return res.status(500).json({ 
@@ -226,7 +523,7 @@ async function startServer() {
 
       // Write chunks to chunks collection
       const chunkPromises = processedChunks.map(async (pc, index) => {
-        return addDoc(collection(db, "chunks"), {
+        return db.collection("chunks").add({
           documentId: docRef.id,
           documentTitle: title,
           userId,
@@ -239,10 +536,12 @@ async function startServer() {
       });
 
       await Promise.all(chunkPromises);
-      console.log(`[RAG INGEST DIAGNOSTIC] Successfully stored ${chunkPromises.length} chunk documents in Firestore collection "chunks".`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[RAG INGEST DIAGNOSTIC] Successfully stored ${chunkPromises.length} chunk documents in Firestore collection "chunks".`);
+      }
 
       // Log study activity
-      await addDoc(collection(db, "activity"), {
+      await db.collection("activity").add({
         userId,
         type: "upload",
         description: `Uploaded and indexed "${title}"`,
@@ -278,45 +577,109 @@ async function startServer() {
     }
   });
 
-  // Helper for exponential backoff on 503 / UNAVAILABLE errors (throws immediately on 429 quota exhaustion or 404 model config errors)
-  async function generateContentWithRetry(params: any, maxRetries = 2, initialDelayMs = 2000) {
+  // Reusable, bounded retry mechanism for transient Gemini failures (429, 500, 502, 503, network timeouts). Max 3 retries, exponential backoff capped at 8s.
+  async function generateContentWithRetry(params: any, maxRetries = 3, initialDelayMs = 2000) {
     let lastErr: any = null;
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         return await ai.models.generateContent(params);
       } catch (err: any) {
         lastErr = err;
-        const errMsg = err?.message || JSON.stringify(err);
-        if (errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("quota")) {
-          console.warn(`[GEMINI QUOTA EXCEEDED] Model ${params.model} hit 429 quota limit. Failing over immediately to next model...`);
+        const errMsg = (err?.message || String(err) || "").toLowerCase();
+        const status = err?.status || err?.code || err?.statusCode;
+
+        // Do NOT retry permanent errors (400, 401, 403, 404, invalid argument, unauthorized, etc.)
+        const isPermanent = 
+          status === 400 || status === 401 || status === 403 || status === 404 ||
+          errMsg.includes("400") || 
+          errMsg.includes("401") || 
+          errMsg.includes("403") || 
+          errMsg.includes("404") || 
+          errMsg.includes("invalid_argument") || 
+          errMsg.includes("permission_denied") || 
+          errMsg.includes("unauthorized") || 
+          errMsg.includes("not found") ||
+          errMsg.includes("no longer available");
+
+        if (isPermanent) {
           throw err;
         }
-        if (errMsg.includes("404") || errMsg.includes("not found") || errMsg.includes("is not found") || errMsg.includes("not supported")) {
-          console.error(`[MODEL CONFIG ERROR] Model ${params.model} is invalid, not found, or not supported: ${errMsg}`);
-          throw err;
-        }
-        if (errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("high demand") || errMsg.includes("overloaded")) {
-          const delay = initialDelayMs * Math.pow(1.5, attempt);
-          console.warn(`[GEMINI RETRY] Model ${params.model} got 503/UNAVAILABLE. Retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})...`);
+
+        // Check for Quota / Rate Limit (429) or Transient server errors (500, 502, 503, network timeouts)
+        const isQuotaExceeded = 
+          status === 429 || 
+          errMsg.includes("429") || 
+          errMsg.includes("resource_exhausted") || 
+          errMsg.includes("quota") || 
+          errMsg.includes("rate limit") || 
+          errMsg.includes("free_tier_requests");
+
+        const isTransient = 
+          status === 500 || status === 502 || status === 503 ||
+          errMsg.includes("500") || 
+          errMsg.includes("502") || 
+          errMsg.includes("503") || 
+          errMsg.includes("unavailable") || 
+          errMsg.includes("high demand") || 
+          errMsg.includes("overloaded") || 
+          errMsg.includes("internal") || 
+          errMsg.includes("bad gateway") || 
+          errMsg.includes("econnreset") || 
+          errMsg.includes("etimedout") || 
+          errMsg.includes("fetch failed") || 
+          errMsg.includes("timeout") ||
+          errMsg.includes("network");
+
+        if ((isQuotaExceeded || isTransient) && attempt < maxRetries) {
+          // Exponential backoff: retry 1 (~2s), retry 2 (~4s), retry 3 (~8s), capped at 8s
+          const calculatedDelay = initialDelayMs * Math.pow(2, attempt);
+          const delay = Math.min(calculatedDelay, 8000);
+
+          console.warn(`[GEMINI RETRY] Attempt ${attempt + 1}/${maxRetries + 1} failed. Retrying in ${delay}ms...`);
           await new Promise((resolve) => setTimeout(resolve, delay));
           continue;
         }
+
         throw err;
       }
     }
     throw lastErr;
   }
 
-  // 2. Chat Query & Retrieval (RAG)
-  app.post("/api/chat/ask", async (req, res) => {
+  // Helper for more robust JSON extraction
+  function robustParseJSON(text: string) {
+    const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    // Try to find the first { and last }
+    const startIndex = cleanText.indexOf('{');
+    const endIndex = cleanText.lastIndexOf('}');
+    
+    if (startIndex === -1 || endIndex === -1) {
+       throw new Error("No JSON object found in response");
+    }
+    
+    const jsonStr = cleanText.substring(startIndex, endIndex + 1);
     try {
-      const { question, history = [], userId = "student-user" } = req.body;
+        return JSON.parse(jsonStr);
+    } catch (e) {
+        // Fallback: fix common JSON errors
+        const fixedText = jsonStr.replace(/,\s*([\]}])/g, '$1');
+        return JSON.parse(fixedText);
+    }
+  }
+
+  // 2. Chat Query & Retrieval (RAG)
+  app.post("/api/chat/ask", requireAuth, async (req, res) => {
+    try {
+      const { question, history = [] } = req.body;
+      const userId = (req as any).user.uid;
 
       if (!question || question.trim() === "") {
         return res.status(400).json({ error: "Question is required", errorStage: "INVALID_INPUT" });
       }
 
-      console.log(`\n[RAG SEARCH START] User Question: "${question}" (userId: "${userId}")`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`\n[RAG SEARCH START] Processing search`);
+      }
 
       // A. Embed the incoming question
       let questionEmbedding: number[] = [];
@@ -342,12 +705,12 @@ async function startServer() {
       }
 
       // B. Retrieve ALL chunks for this user's documents from Firestore
-      console.log(`[RAG SEARCH STEP 5] Fetching chunks from Firestore where userId == "${userId}"...`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[RAG SEARCH STEP 5] Fetching chunks from Firestore...`);
+      }
       let chunksSnap;
       try {
-        chunksSnap = await getDocs(
-          query(collection(db, "chunks"), where("userId", "==", userId))
-        );
+        chunksSnap = await db.collection("chunks").where("userId", "==", userId).get();
       } catch (err: any) {
         console.error("[RAG SEARCH ERROR Stage: CHUNKS_DB_QUERY_FAILED] ", err);
         return res.status(500).json({ 
@@ -357,7 +720,7 @@ async function startServer() {
       }
 
       const allChunks: any[] = [];
-      chunksSnap.forEach((doc) => {
+      chunksSnap.forEach((doc: any) => {
         const data = doc.data();
         if (data.embedding && Array.isArray(data.embedding)) {
           allChunks.push({
@@ -371,7 +734,9 @@ async function startServer() {
         }
       });
 
-      console.log(`[RAG SEARCH STEP 6] Retrieved ${allChunks.length} chunks from database. Calculating similarity...`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[RAG SEARCH STEP 6] Retrieved ${allChunks.length} chunks from database. Calculating similarity...`);
+      }
 
       // C. Rank chunks by Cosine Similarity + Simple Keyword Fallback match
       const rankedChunks = allChunks.map((chunk) => {
@@ -405,11 +770,9 @@ async function startServer() {
       const topChunks = rankedChunks.slice(0, 3);
 
       // Log matching scores and Previews
-      console.log(`[RAG SEARCH RETRIEVAL PREVIEW] Found ${topChunks.length} highly matching chunks:`);
-      topChunks.forEach((c, idx) => {
-        console.log(`  - [Chunk #${idx+1}] File: "${c.documentTitle}" (p. ${c.pageNumber}) | Combined: ${c.similarity.toFixed(3)} (Cosine: ${c.cosineScore.toFixed(3)}, Keyword: ${c.keywordScore.toFixed(3)})`);
-        console.log(`    Excerpt: "${c.text.substring(0, 95).replace(/\n/g, ' ')}..."`);
-      });
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[RAG SEARCH RETRIEVAL PREVIEW] Found ${topChunks.length} highly matching chunks.`);
+      }
 
       // Prepare context block (truncated to control token usage)
       let context = "";
@@ -468,13 +831,15 @@ Rules for answering:
       });
 
       // E. Generate answer with Gemini with multi-model fallback and retry
-      const askModels = ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.5-flash"];
+      const askModels = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.6-flash"];
       let generatedText = "";
       let lastAskErr: any = null;
 
       for (const mName of askModels) {
         try {
-          console.log(`[RAG SEARCH STEP 7] Submitting grounded payload to model: "${mName}"...`);
+          if (process.env.NODE_ENV !== "production") {
+            console.log(`[RAG SEARCH STEP 7] Submitting grounded payload to model: "${mName}"...`);
+          }
           const response = await generateContentWithRetry({
             model: mName,
             contents: messagesPayload,
@@ -493,26 +858,34 @@ Rules for answering:
 
       if (!generatedText) {
         console.error("[RAG SEARCH ERROR Stage: GEMINI_QA_FAILED] All models failed", lastAskErr);
-        return res.status(500).json({ 
-          error: lastAskErr?.message || "Failed to generate answer from study materials. All Gemini models failed.",
+        return res.status(503).json({ 
+          success: false,
+          error: "TEMPORARY_AI_FAILURE",
+          message: "The AI service is temporarily busy. Please try again.",
           errorStage: "GEMINI_QA_FAILED"
         });
       }
 
-      // Log study activity
-      await addDoc(collection(db, "activity"), {
-        userId,
-        type: "ask",
-        description: `Asked question: "${question.substring(0, 50)}..."`,
-        timestamp: new Date().toISOString()
-      });
+      // Log study activity (OPTIONAL secondary write - failure must NOT break successful answer)
+      try {
+        await db.collection("activity").add({
+          userId,
+          type: "ask",
+          description: `Asked question: "${question.substring(0, 50)}..."`,
+          timestamp: new Date().toISOString()
+        });
+      } catch (actErr: any) {
+        console.warn("[RAG SEARCH WARNING] Optional activity log write to Firestore failed (non-blocking):", actErr?.message || actErr);
+      }
 
       const isExtraInfo = generatedText.includes("### Extra info") || !hasSourcedContext;
       const groundedStatus = hasSourcedContext 
         ? (isExtraInfo ? "fallback_knowledge" : "study_material") 
         : "fallback_knowledge";
 
-      console.log(`[RAG SEARCH COMPLETED] Grounding outcome: "${groundedStatus}" (isExtraInfo: ${isExtraInfo})`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[RAG SEARCH COMPLETED] Grounding outcome: "${groundedStatus}" (isExtraInfo: ${isExtraInfo})`);
+      }
 
       return res.json({
         answer: generatedText,
@@ -537,9 +910,10 @@ Rules for answering:
   });
 
   // 3. Generate Personalized Study Note (based on question + answer + context)
-  app.post("/api/notes/generate", async (req, res) => {
+  app.post("/api/notes/generate", requireAuth, async (req, res) => {
     try {
-      const { question, answer, sources = [], userId = "student-user" } = req.body;
+      const { question, answer, sources = [] } = req.body;
+      const userId = (req as any).user.uid;
 
       if (!question || !answer) {
         return res.status(400).json({ error: "Question and Answer are required to compile a note" });
@@ -554,13 +928,15 @@ Rules for answering:
       Summarize the actual generated answer and study context accurately. If the answer contains information marked as Extra info, include it properly without pretending general knowledge came from uploaded study material.`;
 
       let noteContent = "";
-      const noteModels = ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.5-flash"];
+      const noteModels = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.6-flash"];
       let lastNoteErr: any = null;
       let successfulModel = "";
 
       for (const mName of noteModels) {
         try {
-          console.log(`[STUDY NOTE DIAGNOSTIC] Model attempted: "${mName}"`);
+          if (process.env.NODE_ENV !== "production") {
+            console.log(`[STUDY NOTE DIAGNOSTIC] Model attempted: "${mName}"`);
+          }
           const response = await generateContentWithRetry({
             model: mName,
             contents: prompt,
@@ -626,7 +1002,9 @@ Rules for answering:
           noteContent = response.text || "";
           if (noteContent) {
             successfulModel = mName;
-            console.log(`[STUDY NOTE DIAGNOSTIC] Gemini request succeeded ✓ (Model: ${mName}, Structured output returned, length: ${noteContent.length} chars)`);
+            if (process.env.NODE_ENV !== "production") {
+              console.log(`[STUDY NOTE DIAGNOSTIC] Gemini request succeeded ✓ (Model: ${mName}, Structured output returned, length: ${noteContent.length} chars)`);
+            }
             break;
           }
         } catch (err: any) {
@@ -637,43 +1015,70 @@ Rules for answering:
 
       if (!noteContent) {
         console.error("[STUDY NOTE DIAGNOSTIC] Gemini request failed across all models ✗. Last error:", lastNoteErr);
-        return res.status(500).json({ error: lastNoteErr?.message || "Failed to generate personalized study note across all models. Please check your API quota or key." });
+        return res.status(503).json({ 
+          success: false,
+          error: "TEMPORARY_AI_FAILURE",
+          message: "The AI service is temporarily busy. Please try again." 
+        });
       }
 
       let noteObj: any;
       try {
         noteObj = JSON.parse(noteContent);
-        console.log("[STUDY NOTE DIAGNOSTIC] Structured JSON response parsed successfully ✓");
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[STUDY NOTE DIAGNOSTIC] Structured JSON response parsed successfully ✓");
+        }
       } catch (jsonErr: any) {
-        console.error("[STUDY NOTE DIAGNOSTIC] Structured JSON parsing failed ✗:", jsonErr, "Raw output:", noteContent);
-        return res.status(500).json({ error: "Failed to parse structured study note response from AI." });
+        console.error("[STUDY NOTE DIAGNOSTIC] Structured JSON parsing failed ✗:", jsonErr);
+        return res.status(503).json({ 
+          success: false,
+          error: "TEMPORARY_AI_FAILURE",
+          message: "The AI service is temporarily busy. Please try again." 
+        });
       }
 
-      const hasRequiredFields = noteObj && typeof noteObj.title === 'string' && typeof noteObj.summary === 'string';
+      const hasRequiredFields = noteObj && 
+        typeof noteObj.title === 'string' && 
+        typeof noteObj.summary === 'string' && 
+        noteObj.title.trim().length > 0 && 
+        noteObj.summary.trim().length > 0;
+
       if (!hasRequiredFields) {
         console.error("[STUDY NOTE DIAGNOSTIC] StudyNote validation failed ✗ (Missing required title or summary fields in JSON)");
-        return res.status(500).json({ error: "Generated study note is missing required fields." });
+        return res.status(503).json({ 
+          success: false,
+          error: "TEMPORARY_AI_FAILURE",
+          message: "The AI service is temporarily busy. Please try again." 
+        });
       }
-      console.log(`[STUDY NOTE DIAGNOSTIC] StudyNote validation succeeded ✓ (Title: '${noteObj.title}')`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[STUDY NOTE DIAGNOSTIC] StudyNote validation succeeded ✓`);
+      }
 
       const sourceTitle = sources.length > 0 ? sources[0].title : "General Knowledge";
 
       const compiledNote = {
         userId,
-        title: noteObj.title,
-        summary: noteObj.summary,
-        keyConcepts: noteObj.keyConcepts || [],
-        definitions: noteObj.definitions || [],
-        mechanisms: noteObj.mechanisms || [],
-        examPoints: noteObj.examPoints || [],
-        memoryCues: noteObj.memoryCues || [],
-        vivaQuestions: noteObj.vivaQuestions || [],
+        title: String(noteObj.title).trim(),
+        summary: String(noteObj.summary).trim(),
+        keyConcepts: Array.isArray(noteObj.keyConcepts) ? noteObj.keyConcepts.map(String) : [],
+        definitions: Array.isArray(noteObj.definitions) 
+          ? noteObj.definitions
+              .filter((d: any) => d && typeof d === 'object' && d.term && d.definition)
+              .map((d: any) => ({ term: String(d.term), definition: String(d.definition) }))
+          : [],
+        mechanisms: Array.isArray(noteObj.mechanisms) ? noteObj.mechanisms.map(String) : [],
+        examPoints: Array.isArray(noteObj.examPoints) ? noteObj.examPoints.map(String) : [],
+        memoryCues: Array.isArray(noteObj.memoryCues) ? noteObj.memoryCues.map(String) : [],
+        vivaQuestions: Array.isArray(noteObj.vivaQuestions) ? noteObj.vivaQuestions.map(String) : [],
         sourceTitle,
         createdAt: new Date().toISOString(),
         isFavorite: false
       };
 
-      console.log("[STUDY NOTE DIAGNOSTIC] Server returning generated note successfully to frontend ✓");
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[STUDY NOTE DIAGNOSTIC] Server returning generated note successfully to frontend ✓");
+      }
       return res.json({
         success: true,
         note: {
@@ -683,8 +1088,742 @@ Rules for answering:
         }
       });
     } catch (error: any) {
-      console.error("Error in notes generation: ", error);
-      return res.status(500).json({ error: error.message || "Failed to compile study note" });
+      console.error("[STUDY NOTE DIAGNOSTIC EXCEPTION] ", error);
+      return res.status(503).json({ 
+        success: false,
+        error: "TEMPORARY_AI_FAILURE",
+        message: "The AI service is temporarily busy. Please try again." 
+      });
+    }
+  });
+
+  // Helper for concept normalization
+  function normalizeConceptName(name: string): string {
+    return (name || "").toLowerCase().replace(/[^\w\s]/gi, '').replace(/\s+/g, ' ').trim();
+  }
+
+  // 4. Generate Smart Revision Plan
+  app.post("/api/revision/plan", requireAuth, async (req, res) => {
+    try {
+      const { materialId, duration } = req.body;
+      const userId = (req as any).user.uid;
+      if (!materialId) return res.status(400).json({ error: "Missing required revision parameters." });
+
+      // Fetch Material Chunks
+      const chunksSnap = await db.collection("chunks").where("documentId", "==", materialId).where("userId", "==", userId).get();
+      const context = chunksSnap.docs.map((d: any) => d.data().text).join("\n\n").substring(0, 5000);
+
+      // Fetch Previous Completed Revision Sessions for this material safely
+      const previousConcepts: string[] = [];
+      try {
+        const prevSessionsSnap = await db.collection("revisionSessions").where("userId", "==", userId).get();
+        prevSessionsSnap.docs.forEach((d: any) => {
+          const data = d.data();
+          if (data.materialId === materialId && Array.isArray(data.conceptsCovered)) {
+            data.conceptsCovered.forEach((c: any) => {
+              if (c.concept) previousConcepts.push(c.concept);
+            });
+          }
+        });
+      } catch (e) {
+        console.warn("Could not fetch previous revision sessions:", e);
+      }
+
+      // Fetch History
+      const msgs = (await db.collection("messages").where("userId", "==", userId).get()).docs.map((d: any) => d.data());
+      const viva = (await db.collection("vivaResponses").where("userId", "==", userId).get()).docs.map((d: any) => d.data());
+      const notes = (await db.collection("notes").where("userId", "==", userId).get()).docs.map((d: any) => d.data());
+
+      const prompt = `Act as an expert academic tutor. Analyze the student's study data to create a ${duration}-minute revision plan for this study material.
+
+      Study Material: ${context.substring(0, 2000)}...
+
+      Previously Covered Concepts in Past Revision Sessions:
+      ${JSON.stringify(previousConcepts)}
+
+      Student History:
+      - Chat History: ${JSON.stringify(msgs.slice(-5)).substring(0, 500)}
+      - Viva Responses: ${JSON.stringify(viva.slice(-5)).substring(0, 500)}
+      - Existing Notes: ${JSON.stringify(notes.slice(-5)).substring(0, 500)}
+
+      Requirements:
+      1. Identify 3-5 concepts to revise.
+      2. PREFER NEW OR UNSEEN CONCEPTS that have NOT been recently covered in the "Previously Covered Concepts" list above, unless all important material concepts have already been covered (in which case prioritize older or weaker concepts). Do not permanently exclude concepts if they need reinforcement.
+      3. Prioritize based on core material importance and student history. Do not invent weaknesses or fake data.
+      4. Structured Output: Return ONLY pure JSON, no markdown, matching this exact schema:
+      {
+        "concepts": [
+          {
+            "name": "Concept name",
+            "why": "Short student-friendly reason to revise it",
+            "quickReminder": "Very short source-grounded reminder",
+            "priority": "high" or "medium"
+          }
+        ]
+      }
+      `;
+
+      const response = await generateContentWithRetry({
+        model: "gemini-3.5-flash-lite",
+        contents: prompt,
+        config: { temperature: 0.2, responseMimeType: "application/json" }
+      });
+      
+      const plan = robustParseJSON(response.text || "{}");
+      return res.json({ success: true, plan });
+    } catch (err: any) {
+      console.error("Revision plan error:", err);
+      return res.status(500).json({ error: "Failed to generate plan." });
+    }
+  });
+
+  // 4b. Save Completed Revision Session
+  app.post("/api/revision/complete", requireAuth, async (req, res) => {
+    try {
+      const { materialId, materialTitle, sessionId, duration, conceptsCovered, startedAt } = req.body;
+      const userId = (req as any).user.uid;
+      if (!materialId || !sessionId) {
+        return res.status(400).json({ error: "Missing required completion parameters." });
+      }
+
+      // Check if session already saved to prevent duplicates
+      const existingSnap = await db.collection("revisionSessions").where("sessionId", "==", sessionId).get();
+      if (!existingSnap.empty) {
+        return res.json({ success: true, message: "Session already recorded." });
+      }
+
+      const sessionData = {
+        userId,
+        materialId,
+        materialTitle: materialTitle || "",
+        sessionId,
+        duration: duration || 10,
+        conceptsCovered: (conceptsCovered || []).map((c: any) => ({
+          concept: c.concept,
+          normalizedConcept: normalizeConceptName(c.concept),
+          completed: true,
+          status: c.evaluation?.status || "reviewed",
+          performance: c.evaluation || null
+        })),
+        startedAt: startedAt || new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        status: "completed",
+        createdAt: FieldValue.serverTimestamp()
+      };
+
+      await db.collection("revisionSessions").add(sessionData);
+      return res.json({ success: true });
+    } catch (err: any) {
+      console.error("Save revision session error:", err);
+      return res.status(500).json({ error: "Failed to save completed revision session." });
+    }
+  });
+
+  // 4c. Smart Revision Question TTS Endpoint
+  app.post("/api/revision/tts", requireAuth, async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text || typeof text !== "string") {
+        return res.status(400).json({ error: "Missing text for TTS." });
+      }
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash-lite-tts",
+        contents: text,
+        config: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } }
+          }
+        }
+      });
+
+      const part = response.candidates?.[0]?.content?.parts?.[0];
+      if (part && part.inlineData && part.inlineData.data) {
+        return res.json({
+          success: true,
+          audioBase64: part.inlineData.data,
+          mimeType: part.inlineData.mimeType || "audio/wav"
+        });
+      } else {
+        throw new Error("No audio data returned from Gemini TTS model.");
+      }
+    } catch (err: any) {
+      console.error("Smart Revision TTS error:", err);
+      return res.status(500).json({ error: err.message || "Failed to generate TTS audio." });
+    }
+  });
+
+
+  // 4d. Generate Revision Note from completed Smart Revision session
+  app.post("/api/revision/note/generate", requireAuth, async (req, res) => {
+    try {
+      const { materialId, materialTitle, sessionId, conceptsCovered } = req.body;
+      const userId = (req as any).user.uid;
+      if (!materialId) {
+        return res.status(400).json({ error: "Missing required parameters for revision note generation." });
+      }
+
+      if (!Array.isArray(conceptsCovered) || conceptsCovered.length === 0) {
+        return res.status(400).json({ error: "Please complete at least one revision concept before generating a Revision Note." });
+      }
+
+      // Load material chunks
+      const chunksSnap = await db.collection("chunks").where("documentId", "==", materialId).where("userId", "==", userId).get();
+      const context = chunksSnap.docs.map((d: any) => d.data().text).join("\n\n").substring(0, 6000);
+
+      const prompt = `Act as an expert academic tutor. Generate a compact, high-yield Revision Note for quick exam review based on the student's actual completed Smart Revision session and study material.
+
+      Study Material Title: ${materialTitle || "Study Material"}
+      Study Material Context:
+      ${context.substring(0, 3000)}
+
+      Smart Revision Completed Concepts & Student Performance:
+      ${JSON.stringify(conceptsCovered)}
+
+      Requirements:
+      1. Create compact last-minute exam revision notes (not full study notes).
+      2. Base content strictly on the study material and completed revision session data. Do not invent facts.
+      3. Return ONLY pure JSON matching this exact schema:
+      {
+        "topic": "Topic title for the revision note",
+        "coreIdea": "A concise 1-2 sentence core takeaway summarizing the main idea",
+        "keyPoints": ["Key point 1", "Key point 2", "Key point 3", "Key point 4"],
+        "mustRemember": ["Crucial fact 1", "Crucial fact 2"],
+        "commonConfusion": ["Common misconception or pitfall 1"],
+        "examFocus": ["High-yield exam angle 1", "High-yield exam angle 2"],
+        "quickSelfCheck": [
+          { "question": "Self-check question 1?", "answer": "Brief answer 1" },
+          { "question": "Self-check question 2?", "answer": "Brief answer 2" },
+          { "question": "Self-check question 3?", "answer": "Brief answer 3" }
+        ]
+      }
+      `;
+
+      const response = await generateContentWithRetry({
+        model: "gemini-3.5-flash-lite",
+        contents: prompt,
+        config: {
+          temperature: 0.2,
+          responseMimeType: "application/json"
+        }
+      });
+
+      const noteData = robustParseJSON(response.text || "{}");
+      if (!noteData || !noteData.topic || !noteData.coreIdea || !Array.isArray(noteData.keyPoints)) {
+        throw new Error("Generated note structure is invalid.");
+      }
+
+      return res.json({ success: true, note: noteData });
+    } catch (err: any) {
+      console.error("Generate revision note error:", err);
+      return res.status(500).json({ error: err.message || "Revision Note could not be generated. Please try again." });
+    }
+  });
+
+  // 5. Generate Grounded Smart Revision Question
+  app.post("/api/revision/question", requireAuth, async (req, res) => {
+    try {
+      const { concept, materialId, history = [] } = req.body;
+      const userId = (req as any).user.uid;
+
+      // Load material chunks internally
+      const chunksSnap = await db.collection("chunks").where("documentId", "==", materialId).where("userId", "==", userId).get();
+      const materialContext = chunksSnap.docs.map((d: any) => d.data().text).join("\n\n");
+
+      const prompt = `Act as a supportive academic tutor. Generate ONE revision question for the concept: "${concept.name}".
+      
+      Explanation to reinforce: ${concept.explanation}
+      
+      Material Context: ${materialContext.substring(0, 2000)}
+      
+      Requirements:
+      1. Test understanding, not just memorization.
+      2. Use a mix of recall and application.
+      3. Do not repeat previous questions in history: ${JSON.stringify(history)}
+      4. Structured Output (JSON only):
+      {
+        "question": "The question text",
+        "expectedPoints": ["Point 1", "Point 2"]
+      }
+      `;
+
+      const response = await generateContentWithRetry({
+        model: "gemini-3.5-flash-lite",
+        contents: prompt,
+        config: { temperature: 0.3, responseMimeType: "application/json" }
+      });
+      
+      const questionData = robustParseJSON(response.text || "{}");
+      
+      return res.json({ success: true, ...questionData });
+    } catch (err: any) {
+      console.error("Revision question error:", err);
+      return res.status(500).json({ error: "Failed to generate question." });
+    }
+  });
+
+  // 6. Evaluate Smart Revision Answer
+  app.post("/api/revision/evaluate", requireAuth, async (req, res) => {
+    try {
+      const { question, answer, expectedPoints } = req.body;
+      const prompt = `Evaluate the student answer for the revision question: "${question}".
+      
+      Expected points: ${JSON.stringify(expectedPoints)}
+      Student answer: "${answer}"
+      
+      Requirements:
+      1. Determine if the answer is correct, partially correct, or incorrect.
+      2. Identify what the student got right.
+      3. Identify what key point they missed (if any).
+      4. Provide a short "Remember this" takeaway.
+      5. Structured Output (JSON only):
+      {
+        "status": "correct" | "partial" | "incorrect",
+        "feedback": "Concise supportive teacher feedback",
+        "gotRight": "What the student got right",
+        "missed": "Important point missed or null",
+        "takeaway": "Short 'Remember this' takeaway"
+      }
+      `;
+
+      const response = await generateContentWithRetry({
+        model: "gemini-3.5-flash-lite",
+        contents: prompt,
+        config: { temperature: 0.2, responseMimeType: "application/json" }
+      });
+      
+      const evalData = robustParseJSON(response.text || "{}");
+      return res.json({ success: true, ...evalData });
+    } catch (err: any) {
+      console.error("Revision evaluation error:", err);
+      return res.status(500).json({ error: "Failed to evaluate answer." });
+    }
+  });
+
+  // 1. Generate Grounded & Adaptive Viva Question
+  app.post("/api/viva/generate", requireAuth, async (req, res) => {
+    try {
+      const { 
+        documentId, 
+        documentTitle, 
+        questionNumber = 1, 
+        currentDifficulty = "intermediate",
+        previousQuestions = [],
+        previousEvaluations = [],
+        conceptsTested = [],
+        conceptsNeedingReview = []
+      } = req.body;
+      const userId = (req as any).user.uid;
+
+      if (!documentId && !documentTitle) {
+        return res.status(400).json({ success: false, message: "Missing document identifier." });
+      }
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[VIVA V2 GENERATE] Question Q#${questionNumber} | Difficulty: ${currentDifficulty}`);
+      }
+
+      // Retrieve relevant material content or chunks from Firestore
+      let materialContext = "";
+      const chunksSnap = await db.collection("chunks").where("userId", "==", userId).get();
+
+      const matchingChunks: any[] = [];
+      chunksSnap.forEach((docSnap: any) => {
+        const data = docSnap.data();
+        const docName = data.documentTitle || "";
+        const docId = data.documentId || "";
+        if (
+          (documentId && docId === documentId) ||
+          (documentTitle && docName.toLowerCase().includes(documentTitle.toLowerCase())) ||
+          (documentTitle && documentTitle.toLowerCase().includes(docName.toLowerCase()))
+        ) {
+          matchingChunks.push(data);
+        }
+      });
+
+      if (matchingChunks.length > 0) {
+        matchingChunks.sort((a, b) => (a.indexOrder || 0) - (b.indexOrder || 0));
+        // Rotate chunk windows based on question number to cover broader syllabus content
+        const startIndex = ((questionNumber - 1) * 2) % matchingChunks.length;
+        const selectedChunks = matchingChunks.slice(startIndex, startIndex + 4);
+
+        materialContext = selectedChunks.map(c => `[Excerpt (p. ${c.pageNumber || 1})]: ${c.text}`).join("\n\n");
+      }
+
+      // Fallback to documents collection if no chunks found
+      if (!materialContext) {
+        const docsSnap = await db.collection("documents").where("userId", "==", userId).get();
+        docsSnap.forEach((docSnap: any) => {
+          const data = docSnap.data();
+          if (
+            (documentId && docSnap.id === documentId) ||
+            (documentTitle && data.title?.toLowerCase().includes(documentTitle.toLowerCase()))
+          ) {
+            materialContext = (data.content || "").substring(0, 3000);
+          }
+        });
+      }
+
+      if (!materialContext) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Could not find study material content. Please ensure the document is uploaded." 
+        });
+      }
+
+      // Build adaptive examiner instructions based on previous response evaluation
+      let adaptiveInstructions = "";
+
+      if (questionNumber === 1 || previousEvaluations.length === 0) {
+        adaptiveInstructions = `
+THIS IS QUESTION 1 (START OF EXAM SESSION):
+- Start at '${currentDifficulty}' difficulty.
+- Select a core foundational mechanism or concept from the syllabus material.
+- Set questionType to 'mechanism' or 'foundational'.
+- Ensure the question's difficulty matches '${currentDifficulty}' exactly.`;
+      } else {
+        const lastEval = previousEvaluations[previousEvaluations.length - 1];
+        const lastScore = Number(lastEval.score) || 0;
+        const lastPerf = lastEval.performance || (lastScore >= 80 ? 'strong' : lastScore >= 60 ? 'partial' : 'weak');
+        const lastMissing = Array.isArray(lastEval.missingPoints) ? lastEval.missingPoints.join(', ') : '';
+        const lastIncorrect = Array.isArray(lastEval.incorrectPoints) ? lastEval.incorrectPoints.join(', ') : '';
+        const lastConcept = lastEval.targetConcept || lastEval.topic || 'the previous topic';
+
+        if (lastPerf === 'strong' || lastScore >= 80) {
+          adaptiveInstructions = `
+PREVIOUS ANSWER WAS STRONG (Score: ${lastScore}%):
+- Student demonstrated solid understanding of "${lastConcept}".
+- ADAPTIVE RULE: Increase challenge level or ask a deeper conceptual follow-up!
+- TARGET DIFFICULTY: '${currentDifficulty || 'intermediate'}' or 'advanced'.
+- RECOMMENDED QUESTION TYPES: 'deeper_reasoning', 'mechanism', 'comparison', or 'application'.
+- Formulate a follow-up question that tests why, how, comparison, or practical application related to "${lastConcept}" or the next logical step in the mechanism.
+- IMPORTANT: The question must adhere to the difficulty level '${currentDifficulty}'.`;
+        } else if (lastPerf === 'partial' || lastScore >= 60) {
+          adaptiveInstructions = `
+PREVIOUS ANSWER WAS PARTIALLY CORRECT (Score: ${lastScore}%):
+- Student missed these specific details: "${lastMissing || 'key steps'}".
+- ADAPTIVE RULE: Ask a focused clarification/follow-up targeting the missing details!
+- TARGET DIFFICULTY: '${currentDifficulty || 'intermediate'}' (maintain current difficulty).
+- RECOMMENDED QUESTION TYPES: 'clarification' or 'follow_up'.
+- Formulate a question that directly helps the student clarify and address: "${lastMissing}".
+- IMPORTANT: The question must adhere to the difficulty level '${currentDifficulty}'.`;
+        } else {
+          adaptiveInstructions = `
+PREVIOUS ANSWER WAS WEAK OR INCORRECT (Score: ${lastScore}%):
+- Student struggled with or had misconceptions about: "${lastMissing || lastIncorrect || lastConcept}".
+- ADAPTIVE RULE: Ask a simpler, foundational question targeting the same concept from another angle!
+- TARGET DIFFICULTY: 'basic' or 'intermediate'.
+- RECOMMENDED QUESTION TYPES: 'foundational' or 'clarification'.
+- Give the student an opportunity to demonstrate basic understanding before moving on. Do NOT switch to an completely unrelated topic immediately.
+- IMPORTANT: The question must adhere to the difficulty level 'basic' or 'intermediate' as requested by the exam parameters.`;
+        }
+      }
+
+      const prevQuestionsList = Array.isArray(previousQuestions) && previousQuestions.length > 0 
+        ? previousQuestions.map((q, i) => `Q${i+1}: "${q}"`).join('\n') 
+        : 'None yet.';
+
+      const conceptsReviewList = Array.isArray(conceptsNeedingReview) && conceptsNeedingReview.length > 0
+        ? conceptsNeedingReview.join(', ')
+        : 'None';
+
+      const vivaQuestionSchema = {
+        type: Type.OBJECT,
+        properties: {
+          question: { type: Type.STRING, description: "Direct, conceptual oral examination question." },
+          difficulty: { type: Type.STRING, description: "basic | intermediate | advanced" },
+          questionType: { type: Type.STRING, description: "follow_up | clarification | deeper_reasoning | mechanism | comparison | application | foundational" },
+          targetConcept: { type: Type.STRING, description: "The core concept or mechanism targeted by this question." },
+          reason: { type: Type.STRING, description: "Short internal reasoning explaining why this question was selected." },
+          topic: { type: Type.STRING, description: "Specific topic tested." },
+          expectedConcepts: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "2-4 key conceptual points expected in a complete answer."
+          },
+          sourceReferences: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                documentTitle: { type: Type.STRING },
+                pageNumber: { type: Type.INTEGER, nullable: true }
+              },
+              required: ["documentTitle"]
+            }
+          }
+        },
+        required: ["question", "difficulty", "questionType", "targetConcept", "reason", "topic", "expectedConcepts", "sourceReferences"]
+      };
+
+      const prompt = `You are a university oral examiner conducting an adaptive Viva examination grounded in the student's study material.
+
+SOURCE MATERIAL:
+${materialContext}
+
+EXAM CONTEXT:
+- Question Number: ${questionNumber} of 5
+- Document Title: "${documentTitle || 'Syllabus Source'}"
+- Current Target Difficulty: "${currentDifficulty}"
+- Concepts Needing Review: ${conceptsReviewList}
+
+PREVIOUSLY ASKED QUESTIONS IN THIS SESSION (STRICT RULE: DO NOT REPEAT ANY OF THESE OR ASK NEAR-DUPLICATES):
+${prevQuestionsList}
+
+ADAPTIVE EXAMINER INSTRUCTIONS:
+${adaptiveInstructions}
+
+REQUIREMENTS:
+1. Formulate ONE clear, natural oral examination question derived STRICTLY from the provided source material.
+2. The question MUST NOT repeat or closely resemble any previously asked question.
+3. The question must logically connect to the syllabus material and examiner strategy.
+4. Set difficulty to 'basic', 'intermediate', or 'advanced'.
+5. Set questionType to one of: 'follow_up', 'clarification', 'deeper_reasoning', 'mechanism', 'comparison', 'application', 'foundational'.
+6. Provide targetConcept and a concise internal 'reason' for selecting this question.`;
+
+      const vivaModels = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.6-flash"];
+      let questionResult: any = null;
+      let lastErr: any = null;
+
+      for (const modelAlias of vivaModels) {
+        try {
+          const response = await generateContentWithRetry({
+            model: modelAlias,
+            contents: prompt,
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: vivaQuestionSchema,
+              temperature: 0.3
+            }
+          });
+
+          if (response?.text) {
+            questionResult = JSON.parse(response.text);
+            break;
+          }
+        } catch (err: any) {
+          console.warn(`[VIVA GENERATE WARNING] Model ${modelAlias} failed:`, err?.message || err);
+          lastErr = err;
+        }
+      }
+
+      if (!questionResult || !questionResult.question) {
+        console.error("[VIVA GENERATE ERROR] All models failed", lastErr);
+        return res.status(503).json({
+          success: false,
+          error: "TEMPORARY_AI_FAILURE",
+          message: "The AI examiner is temporarily busy. Please try again."
+        });
+      }
+
+      let difficulty = String(questionResult.difficulty || currentDifficulty || 'intermediate').toLowerCase().trim();
+      if (!['basic', 'intermediate', 'advanced'].includes(difficulty)) {
+        difficulty = 'intermediate';
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          question: String(questionResult.question).trim(),
+          topic: String(questionResult.topic || "Syllabus Concept").trim(),
+          difficulty,
+          questionType: String(questionResult.questionType || "follow_up").trim(),
+          targetConcept: String(questionResult.targetConcept || questionResult.topic || "Core Concept").trim(),
+          reason: String(questionResult.reason || "Adaptive examination follow-up").trim(),
+          expectedConcepts: Array.isArray(questionResult.expectedConcepts) ? questionResult.expectedConcepts.map(String) : [],
+          sourceReferences: Array.isArray(questionResult.sourceReferences) ? questionResult.sourceReferences : [{ documentTitle: documentTitle || "Syllabus Source" }]
+        }
+      });
+    } catch (err: any) {
+      console.error("[VIVA GENERATE EXCEPTION]", err);
+      return res.status(503).json({
+        success: false,
+        error: "TEMPORARY_AI_FAILURE",
+        message: "The AI examiner is temporarily busy. Please try again."
+      });
+    }
+  });
+
+  // 2. Evaluate Student Viva Answer
+  app.post("/api/viva/evaluate", requireAuth, async (req, res) => {
+    try {
+      const { sessionId, question, studentAnswer, expectedConcepts = [], documentTitle } = req.body;
+      const userId = (req as any).user.uid;
+
+      if (!question || !studentAnswer) {
+        return res.status(400).json({ success: false, message: "Missing required evaluation fields." });
+      }
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[VIVA V2 EVALUATE] Session: ${sessionId}`);
+      }
+
+      // Retrieve document context for grounded grading
+      let materialContext = "";
+      const chunksSnap = await db.collection("chunks").where("userId", "==", userId).get();
+
+      chunksSnap.forEach((docSnap: any) => {
+        const data = docSnap.data();
+        if (documentTitle && (data.documentTitle?.toLowerCase().includes(documentTitle.toLowerCase()) || documentTitle.toLowerCase().includes(data.documentTitle?.toLowerCase()))) {
+          materialContext += `\n${data.text}`;
+        }
+      });
+
+      if (materialContext.length > 3000) {
+        materialContext = materialContext.substring(0, 3000);
+      }
+
+      const vivaEvalSchema = {
+        type: Type.OBJECT,
+        properties: {
+          score: { type: Type.INTEGER, description: "Score from 0 to 100 based on factual understanding." },
+          performance: { type: Type.STRING, description: "strong | partial | weak" },
+          assessment: { type: Type.STRING, description: "1-2 sentence constructive examiner assessment." },
+          correctPoints: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "Specific key points the student answered correctly."
+          },
+          missingPoints: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "Key points or concepts that were missing or incomplete."
+          },
+          incorrectPoints: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "Factual inaccuracies or misconceptions present in the answer."
+          },
+          conceptsDemonstrated: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "Key concepts or terms the student successfully demonstrated."
+          },
+          conceptsToReview: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "Key concepts or topics needing further review based on this answer."
+          },
+          recommendedDifficulty: { type: Type.STRING, description: "basic | intermediate | advanced" },
+          idealAnswer: { type: Type.STRING, description: "A concise, accurate model answer grounded in the material." },
+          importantTerms: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "Key technical terms relevant to this question."
+          },
+          topic: { type: Type.STRING, description: "Topic area evaluated." }
+        },
+        required: ["score", "performance", "assessment", "correctPoints", "missingPoints", "incorrectPoints", "conceptsDemonstrated", "conceptsToReview", "recommendedDifficulty", "idealAnswer", "importantTerms", "topic"]
+      };
+
+      const prompt = `You are an expert oral Viva examiner grading a university student's answer.
+
+QUESTION ASKED:
+"${question}"
+
+EXPECTED CONCEPTS:
+${JSON.stringify(expectedConcepts)}
+
+STUDENT'S SPOKEN/TYPED ANSWER:
+"${studentAnswer}"
+
+REFERENCE SYLLABUS MATERIAL:
+${materialContext || "Grounded in standard syllabus definition."}
+
+GRADING CRITERIA:
+1. Assign a numeric score from 0 to 100 reflecting factual understanding:
+   - 85-100: Deep, accurate explanation covering key mechanisms and technical terms.
+   - 65-84: Correct core concept but missing minor details or steps.
+   - 40-64: Partially correct, vague, or missing primary mechanisms.
+   - 0-39: Incorrect, off-topic, or missing fundamental facts (or "I don't know").
+2. Set "performance":
+   - "strong" if score >= 80
+   - "partial" if score is 60-79
+   - "weak" if score < 60
+3. Set "recommendedDifficulty" for the NEXT question:
+   - "advanced" or "intermediate" if performance is "strong"
+   - "intermediate" or "basic" if performance is "partial"
+   - "basic" or "intermediate" if performance is "weak"
+4. Do NOT give high scores for superficial fluency without factual substance.
+5. Do NOT penalize minor phrasing differences if the underlying concept is correct.
+6. Extract clear arrays for:
+   - "correctPoints": what the student got right
+   - "missingPoints": what key elements were missing
+   - "incorrectPoints": any direct factual errors or misconceptions
+   - "conceptsDemonstrated": concepts proved understood
+   - "conceptsToReview": concepts needing further drill
+7. Provide a concise ideal model answer grounded in the syllabus.`;
+
+      const vivaModels = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.6-flash"];
+      let evalResult: any = null;
+      let lastErr: any = null;
+
+      for (const modelAlias of vivaModels) {
+        try {
+          const response = await generateContentWithRetry({
+            model: modelAlias,
+            contents: prompt,
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: vivaEvalSchema,
+              temperature: 0.2
+            }
+          });
+
+          if (response?.text) {
+            evalResult = JSON.parse(response.text);
+            break;
+          }
+        } catch (err: any) {
+          console.warn(`[VIVA EVALUATE WARNING] Model ${modelAlias} failed:`, err?.message || err);
+          lastErr = err;
+        }
+      }
+
+      if (!evalResult || typeof evalResult.score !== "number") {
+        console.error("[VIVA EVALUATE ERROR] All models failed", lastErr);
+        return res.status(503).json({
+          success: false,
+          error: "TEMPORARY_AI_FAILURE",
+          message: "The AI examiner is temporarily busy. Please try again."
+        });
+      }
+
+      const score = Math.min(100, Math.max(0, Math.round(Number(evalResult.score) || 0)));
+      let performance = String(evalResult.performance || '').toLowerCase().trim();
+      if (!['strong', 'partial', 'weak'].includes(performance)) {
+        performance = score >= 80 ? 'strong' : score >= 60 ? 'partial' : 'weak';
+      }
+      let recommendedDifficulty = String(evalResult.recommendedDifficulty || '').toLowerCase().trim();
+      if (!['basic', 'intermediate', 'advanced'].includes(recommendedDifficulty)) {
+        recommendedDifficulty = performance === 'strong' ? 'advanced' : performance === 'partial' ? 'intermediate' : 'basic';
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          score,
+          performance,
+          assessment: String(evalResult.assessment || "").trim(),
+          correctPoints: Array.isArray(evalResult.correctPoints) ? evalResult.correctPoints.map(String) : [],
+          missingPoints: Array.isArray(evalResult.missingPoints) ? evalResult.missingPoints.map(String) : [],
+          incorrectPoints: Array.isArray(evalResult.incorrectPoints) ? evalResult.incorrectPoints.map(String) : [],
+          conceptsDemonstrated: Array.isArray(evalResult.conceptsDemonstrated) ? evalResult.conceptsDemonstrated.map(String) : [],
+          conceptsToReview: Array.isArray(evalResult.conceptsToReview) ? evalResult.conceptsToReview.map(String) : [],
+          recommendedDifficulty,
+          idealAnswer: String(evalResult.idealAnswer || "").trim(),
+          importantTerms: Array.isArray(evalResult.importantTerms) ? evalResult.importantTerms.map(String) : [],
+          topic: String(evalResult.topic || "Syllabus Topic").trim()
+        }
+      });
+    } catch (err: any) {
+      console.error("[VIVA EVALUATE EXCEPTION]", err);
+      return res.status(503).json({
+        success: false,
+        error: "TEMPORARY_AI_FAILURE",
+        message: "The AI examiner is temporarily busy. Please try again."
+      });
     }
   });
 

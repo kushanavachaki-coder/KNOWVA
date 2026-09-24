@@ -1,30 +1,74 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Allow read/write access to documents collection
-    match /documents/{documentId} {
-      allow read, write: if true;
-    }
-    
-    // Allow read/write access to chunks collection
-    match /chunks/{chunkId} {
-      allow read, write: if true;
-    }
-    
-    // Allow read/write access to notes collection
-    match /notes/{noteId} {
-      allow read, write: if true;
-    }
-    
-    // Allow read/write access to messages collection
-    match /messages/{messageId} {
-      allow read, write: if true;
+
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // Allow read/write access to activity logs collection
+    // Helper to check user ID ownership (requires authentication)
+    function isValidOwner(docData) {
+      return isAuthenticated() && docData.userId == request.auth.uid;
+    }
+
+    function isNewValidOwner(incomingData) {
+      return isAuthenticated() && incomingData.userId == request.auth.uid;
+    }
+
+    // 1. Documents collection
+    match /documents/{documentId} {
+      allow read, delete: if resource == null || isValidOwner(resource.data);
+      allow create: if isNewValidOwner(request.resource.data);
+      allow update: if isValidOwner(resource.data) && isNewValidOwner(request.resource.data);
+    }
+
+    // 2. Chunks collection
+    match /chunks/{chunkId} {
+      allow read, delete: if resource == null || isValidOwner(resource.data);
+      allow create: if isNewValidOwner(request.resource.data);
+      allow update: if isValidOwner(resource.data) && isNewValidOwner(request.resource.data);
+    }
+
+    // 3. Notes collection
+    match /notes/{noteId} {
+      allow read, delete: if resource == null || isValidOwner(resource.data);
+      allow create: if isNewValidOwner(request.resource.data);
+      allow update: if isValidOwner(resource.data) && isNewValidOwner(request.resource.data);
+    }
+
+    // 4. Messages collection
+    match /messages/{messageId} {
+      allow read, delete: if resource == null || isValidOwner(resource.data);
+      allow create: if isNewValidOwner(request.resource.data);
+      allow update: if isValidOwner(resource.data) && isNewValidOwner(request.resource.data);
+    }
+
+    // 5. Activity collection
     match /activity/{activityId} {
-      allow read, write: if true;
+      allow read, delete: if resource == null || isValidOwner(resource.data);
+      allow create: if isNewValidOwner(request.resource.data);
+      allow update: if isValidOwner(resource.data) && isNewValidOwner(request.resource.data);
+    }
+
+    // 6. VivaSessions collection
+    match /vivaSessions/{sessionId} {
+      allow read, delete: if resource == null || isValidOwner(resource.data);
+      allow create: if isNewValidOwner(request.resource.data);
+      allow update: if isValidOwner(resource.data) && isNewValidOwner(request.resource.data);
+    }
+
+    // 7. VivaResponses collection
+    match /vivaResponses/{responseId} {
+      allow read, delete: if resource == null || isValidOwner(resource.data);
+      allow create: if isNewValidOwner(request.resource.data);
+      allow update: if isValidOwner(resource.data) && isNewValidOwner(request.resource.data);
+    }
+
+    // 8. RevisionSessions collection
+    match /revisionSessions/{sessionId} {
+      allow read, delete: if resource == null || isValidOwner(resource.data);
+      allow create: if isNewValidOwner(request.resource.data);
+      allow update: if isValidOwner(resource.data) && isNewValidOwner(request.resource.data);
     }
   }
 }

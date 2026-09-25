@@ -84,19 +84,19 @@ export default function HomeSection({
       variants={listVariants}
       initial="hidden"
       animate="show"
-      className="w-full max-w-md mx-auto space-y-5 pb-24 text-left"
+      className="w-full max-w-md mx-auto space-y-5 pb-24 text-left font-sans"
     >
       {/* 1. BRANDING & GREETING ROW */}
       <motion.div variants={itemVariants} className="flex items-center justify-between bg-gradient-to-r from-sky-50 to-blue-50/30 p-4 rounded-2xl border border-sky-100/50">
         <div className="space-y-1">
-          <span className="text-[9px] font-extrabold tracking-widest text-sky-600 uppercase block">
-            STUDY HUB
+          <span className="text-[10px] font-bold tracking-[0.16em] text-sky-600 uppercase block">
+            YOUR STUDY SPACE
           </span>
-          <h1 className="text-lg font-bold text-slate-800 tracking-tight">
+          <h1 className="text-[19px] leading-tight font-semibold text-slate-800 tracking-[-0.01em]">
             {getGreeting()}, <span className="text-blue-600">{userName || 'Scholar'}</span>
           </h1>
-          <p className="text-[11px] text-slate-500 font-medium">
-            Ready to achieve your study goals today?
+          <p className="text-xs leading-relaxed text-slate-500 font-medium">
+            A focused workspace for learning, practice, and revision.
           </p>
         </div>
         
@@ -106,7 +106,7 @@ export default function HomeSection({
           className="bg-amber-500 text-white rounded-xl px-3 py-1.5 flex items-center gap-1 shadow-md shadow-amber-500/10"
         >
           <Flame className="h-4 w-4 fill-amber-100" />
-          <span className="text-xs font-bold">{studyStreak} Days</span>
+          <span className="text-sm font-semibold">{studyStreak} Days</span>
         </motion.div>
       </motion.div>
 
@@ -120,25 +120,25 @@ export default function HomeSection({
         
         <div className="space-y-4 relative">
           <div className="flex justify-between items-center">
-            <span className="text-[10px] font-extrabold tracking-widest text-cyan-300 uppercase block">
-              Study Activity Overview
+            <span className="text-[10px] font-bold tracking-[0.14em] text-cyan-300 uppercase block">
+              Study Overview
             </span>
-            <span className="text-[10px] font-semibold bg-sky-500/20 text-cyan-200 border border-sky-500/30 px-2 py-0.5 rounded-full">
-              {materialsUploadedCount > 0 ? `${materialsUploadedCount} Materials Indexed` : 'No Materials'}
+            <span className="text-[10px] font-medium bg-sky-500/20 text-cyan-200 border border-sky-500/30 px-2 py-0.5 rounded-full">
+              {materialsUploadedCount > 0 ? `${materialsUploadedCount} Materials Ready` : 'No Materials'}
             </span>
           </div>
 
           {materialsUploadedCount === 0 && questionsAskedCount === 0 && notesCreatedCount === 0 ? (
             <div className="py-2 space-y-1">
               <p className="text-xs text-slate-300 font-medium">
-                No learning activity recorded yet. Upload study materials or ask questions to populate your analytics.
+                Your study activity will appear here as you work through materials, questions, and notes.
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-2 pt-1">
               <div className="bg-white/10 p-2.5 rounded-xl text-center">
                 <span className="text-lg font-black text-white block">{materialsUploadedCount}</span>
-                <span className="text-[9px] text-cyan-200 font-bold uppercase tracking-wider block">Materials</span>
+                <span className="text-[10px] text-cyan-200 font-semibold uppercase tracking-wide block">Materials</span>
               </div>
               <div className="bg-white/10 p-2.5 rounded-xl text-center">
                 <span className="text-lg font-black text-white block">{questionsAskedCount}</span>
@@ -156,8 +156,8 @@ export default function HomeSection({
       {/* 3. SMART REVISION ENTRY CARD (REPLACING FAKE TOPIC) */}
       <motion.div variants={itemVariants} className="space-y-2">
         <div className="flex justify-between items-center px-1">
-          <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
-            Active Recall & Revision
+          <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.12em]">
+            Revision
           </h3>
           <button 
             onClick={() => onNavigate('revision')}
@@ -175,7 +175,7 @@ export default function HomeSection({
             <div className="space-y-0.5 text-left">
               <h4 className="text-xs font-bold">Smart Revision</h4>
               <p className="text-[10px] text-sky-100 font-medium">
-                Targeted active recall based on your actual study material and history.
+                Review key concepts using your study material and recent activity.
               </p>
             </div>
           </div>
@@ -191,8 +191,8 @@ export default function HomeSection({
 
       {/* 4. CONTINUE STUDYING SECTION */}
       <motion.div variants={itemVariants} className="space-y-2">
-        <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-1">
-          Continue Studying
+        <h3 className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.12em] px-1">
+          Continue Learning
         </h3>
 
         <motion.div
@@ -202,13 +202,13 @@ export default function HomeSection({
           <div className="absolute -right-8 -top-8 w-24 h-24 rounded-full bg-cyan-300/25 blur-2xl animate-pulse" />
           <div className="absolute -left-10 -bottom-10 w-28 h-28 rounded-full bg-blue-300/20 blur-3xl" />
           <div className="relative space-y-1 text-left">
-            <span className="text-[9px] font-extrabold tracking-widest text-cyan-100 uppercase block">
-              Active Source Document
+            <span className="text-[10px] font-semibold tracking-[0.12em] text-cyan-100 uppercase block">
+              Current Study Material
             </span>
-            <h3 className="text-sm font-bold truncate text-white">
+            <h3 className="text-[15px] leading-tight font-semibold truncate text-white">
               {latestMaterial ? latestMaterial.name : "Cellular & Molecular Biology Basics"}
             </h3>
-            <p className="text-[10px] text-sky-50/90 font-medium">
+            <p className="text-[11px] leading-relaxed text-sky-50/90 font-medium">
               {latestMaterial 
                 ? `Indexed on ${new Date(latestMaterial.uploadedAt).toLocaleDateString()} • ${latestMaterial.fileSize || 'Pasted text'}` 
                 : "No study notes connected yet."}
@@ -216,8 +216,8 @@ export default function HomeSection({
           </div>
 
           <div className="relative flex items-center justify-between pt-1">
-            <span className="text-[10px] bg-white/15 text-white px-2.5 py-1 rounded-lg border border-white/20 font-semibold backdrop-blur-sm">
-              {latestMaterial ? "Ready for practicing" : "Requires active doc"}
+            <span className="text-[11px] bg-white/15 text-white px-2.5 py-1 rounded-lg border border-white/20 font-semibold backdrop-blur-sm">
+              {latestMaterial ? "Ready to continue" : "Add a study material"}
             </span>
             <motion.button
               whileHover={{ x: 3 }}
@@ -225,7 +225,7 @@ export default function HomeSection({
               onClick={() => onNavigate('ask')}
               className="px-3.5 py-1.5 bg-white text-blue-600 hover:bg-cyan-50 text-xs font-bold rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.28)] flex items-center gap-1 cursor-pointer"
             >
-              <span>Resume</span>
+              <span>Open</span>
               <ArrowRight className="h-3 w-3" />
             </motion.button>
           </div>
@@ -235,7 +235,7 @@ export default function HomeSection({
       {/* 5. QUICK ACTIONS */}
       <motion.div variants={itemVariants} className="space-y-2">
         <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-1">
-          Quick Actions
+          Study Tools
         </h3>
         
         <div className="grid grid-cols-2 gap-2.5">
@@ -249,8 +249,8 @@ export default function HomeSection({
               <MessageSquare className="h-4.5 w-4.5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-white block">Ask a Question</span>
-              <span className="text-[9px] text-sky-50/90 mt-0.5 font-medium block">Discuss materials with AI</span>
+              <span className="text-sm font-semibold text-white block">Ask Knowva</span>
+              <span className="text-[10px] text-white/80 mt-1 font-medium block leading-relaxed">Get answers from your study material</span>
             </div>
           </motion.button>
 
@@ -264,8 +264,8 @@ export default function HomeSection({
               <Upload className="h-4.5 w-4.5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-white block">Upload Notes</span>
-              <span className="text-[9px] text-slate-400 mt-0.5 font-medium block">Import PDF study files</span>
+              <span className="text-xs font-bold text-white block">Add Study Material</span>
+              <span className="text-[10px] text-white/80 mt-1 font-medium block leading-relaxed">Upload a PDF or study file</span>
             </div>
           </motion.button>
 
@@ -279,8 +279,8 @@ export default function HomeSection({
               <FileEdit className="h-4.5 w-4.5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-white block">Create Note</span>
-              <span className="text-[9px] text-slate-400 mt-0.5 font-medium block">Draft custom study card</span>
+              <span className="text-xs font-bold text-white block">Create Study Notes</span>
+              <span className="text-[9px] text-slate-400 mt-0.5 font-medium block">Build a focused study note</span>
             </div>
           </motion.button>
 
@@ -294,8 +294,8 @@ export default function HomeSection({
               <Mic className="h-4.5 w-4.5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-white block">Start Viva</span>
-              <span className="text-[9px] text-slate-400 mt-0.5 font-medium block">Oral study practice drill</span>
+              <span className="text-xs font-bold text-white block">Practice Viva</span>
+              <span className="text-[9px] text-slate-400 mt-0.5 font-medium block">Test your understanding aloud</span>
             </div>
           </motion.button>
         </div>
@@ -304,23 +304,23 @@ export default function HomeSection({
       {/* 6. HISTORICAL ACCOMPLISHMENTS */}
       <motion.div variants={itemVariants} className="space-y-2">
         <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-1">
-          Historical Accomplishments
+          Study Activity
         </h3>
 
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-white border border-slate-100 p-3 rounded-2xl text-center shadow-sm">
-            <span className="text-[18px] font-black text-slate-800 block leading-none">{questionsAskedCount}</span>
-            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block mt-1">Queries</span>
+            <span className="text-[20px] font-bold text-slate-800 block leading-none">{questionsAskedCount}</span>
+            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide block mt-1">Queries</span>
           </div>
           
           <div className="bg-white border border-slate-100 p-3 rounded-2xl text-center shadow-sm">
             <span className="text-[18px] font-black text-slate-800 block leading-none">{notesCreatedCount}</span>
-            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block mt-1">Study Cards</span>
+            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block mt-1">Notes Created</span>
           </div>
 
           <div className="bg-white border border-slate-100 p-3 rounded-2xl text-center shadow-sm">
             <span className="text-[18px] font-black text-slate-800 block leading-none">{materialsUploadedCount}</span>
-            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block mt-1">Uploads</span>
+            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block mt-1">Materials</span>
           </div>
         </div>
       </motion.div>

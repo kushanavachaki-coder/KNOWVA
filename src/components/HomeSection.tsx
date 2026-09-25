@@ -195,36 +195,41 @@ export default function HomeSection({
           Continue Studying
         </h3>
 
-        <div className="bg-white border border-slate-100 p-4.5 rounded-2xl space-y-4 shadow-sm">
-          <div className="space-y-1 text-left">
-            <span className="text-[9px] font-extrabold tracking-widest text-sky-600 uppercase block">
+        <motion.div
+          whileHover={{ y: -2, scale: 1.005 }}
+          className="relative overflow-hidden bg-gradient-to-br from-sky-500 via-blue-600 to-cyan-500 border border-sky-300/60 p-4.5 rounded-2xl space-y-4 shadow-[0_0_28px_rgba(14,165,233,0.28)]"
+        >
+          <div className="absolute -right-8 -top-8 w-24 h-24 rounded-full bg-cyan-300/25 blur-2xl animate-pulse" />
+          <div className="absolute -left-10 -bottom-10 w-28 h-28 rounded-full bg-blue-300/20 blur-3xl" />
+          <div className="relative space-y-1 text-left">
+            <span className="text-[9px] font-extrabold tracking-widest text-cyan-100 uppercase block">
               Active Source Document
             </span>
-            <h3 className="text-sm font-bold truncate text-slate-800">
+            <h3 className="text-sm font-bold truncate text-white">
               {latestMaterial ? latestMaterial.name : "Cellular & Molecular Biology Basics"}
             </h3>
-            <p className="text-[10px] text-slate-500 font-medium">
+            <p className="text-[10px] text-sky-50/90 font-medium">
               {latestMaterial 
                 ? `Indexed on ${new Date(latestMaterial.uploadedAt).toLocaleDateString()} • ${latestMaterial.fileSize || 'Pasted text'}` 
                 : "No study notes connected yet."}
             </p>
           </div>
 
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-[10px] bg-sky-50 text-sky-700 px-2.5 py-1 rounded-lg border border-sky-100 font-semibold">
+          <div className="relative flex items-center justify-between pt-1">
+            <span className="text-[10px] bg-white/15 text-white px-2.5 py-1 rounded-lg border border-white/20 font-semibold backdrop-blur-sm">
               {latestMaterial ? "Ready for practicing" : "Requires active doc"}
             </span>
             <motion.button
               whileHover={{ x: 3 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => onNavigate('ask')}
-              className="px-3.5 py-1.5 bg-sky-600 text-white hover:bg-sky-500 text-xs font-bold rounded-lg shadow-sm flex items-center gap-1 cursor-pointer"
+              className="px-3.5 py-1.5 bg-white text-blue-600 hover:bg-cyan-50 text-xs font-bold rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.28)] flex items-center gap-1 cursor-pointer"
             >
               <span>Resume</span>
               <ArrowRight className="h-3 w-3" />
             </motion.button>
           </div>
-        </div>
+        </motion.div>
       </motion.div>
 
       {/* 5. QUICK ACTIONS */}
@@ -238,14 +243,14 @@ export default function HomeSection({
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => onNavigate('ask')}
-            className="p-3.5 bg-white border border-slate-100 hover:border-sky-200 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-sm"
+            className="p-3.5 bg-gradient-to-br from-sky-500 to-blue-600 border border-sky-300/60 hover:from-sky-400 hover:to-blue-500 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-[0_0_22px_rgba(14,165,233,0.22)] text-white"
           >
-            <div className="p-2 bg-sky-50 text-sky-600 border border-sky-100 rounded-xl">
+            <div className="p-2 bg-white/15 text-white border border-white/20 backdrop-blur-sm shadow-[0_0_14px_rgba(255,255,255,0.16)] rounded-xl">
               <MessageSquare className="h-4.5 w-4.5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-slate-800 block">Ask a Question</span>
-              <span className="text-[9px] text-slate-400 mt-0.5 font-medium block">Discuss materials with AI</span>
+              <span className="text-xs font-bold text-white block">Ask a Question</span>
+              <span className="text-[9px] text-sky-50/90 mt-0.5 font-medium block">Discuss materials with AI</span>
             </div>
           </motion.button>
 
@@ -253,13 +258,13 @@ export default function HomeSection({
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.97 }}
             onClick={onOpenQuickUpload}
-            className="p-3.5 bg-white border border-slate-100 hover:border-cyan-200 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-sm"
+            className="p-3.5 bg-gradient-to-br from-cyan-500 to-sky-600 border border-cyan-300/60 hover:from-cyan-400 hover:to-sky-500 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-[0_0_22px_rgba(6,182,212,0.22)] text-white"
           >
-            <div className="p-2 bg-cyan-50 text-cyan-600 border border-cyan-100 rounded-xl">
+            <div className="p-2 bg-white/15 text-white border border-white/20 backdrop-blur-sm shadow-[0_0_14px_rgba(255,255,255,0.16)] rounded-xl">
               <Upload className="h-4.5 w-4.5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-slate-800 block">Upload Notes</span>
+              <span className="text-xs font-bold text-white block">Upload Notes</span>
               <span className="text-[9px] text-slate-400 mt-0.5 font-medium block">Import PDF study files</span>
             </div>
           </motion.button>
@@ -268,13 +273,13 @@ export default function HomeSection({
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.97 }}
             onClick={onOpenQuickNote}
-            className="p-3.5 bg-white border border-slate-100 hover:border-amber-200 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-sm"
+            className="p-3.5 bg-gradient-to-br from-blue-600 to-indigo-600 border border-blue-300/60 hover:from-blue-500 hover:to-indigo-500 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-[0_0_22px_rgba(37,99,235,0.22)] text-white"
           >
-            <div className="p-2 bg-amber-50 text-amber-600 border border-amber-100 rounded-xl">
+            <div className="p-2 bg-white/15 text-white border border-white/20 backdrop-blur-sm shadow-[0_0_14px_rgba(255,255,255,0.16)] rounded-xl">
               <FileEdit className="h-4.5 w-4.5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-slate-800 block">Create Note</span>
+              <span className="text-xs font-bold text-white block">Create Note</span>
               <span className="text-[9px] text-slate-400 mt-0.5 font-medium block">Draft custom study card</span>
             </div>
           </motion.button>
@@ -283,13 +288,13 @@ export default function HomeSection({
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => onNavigate('viva')}
-            className="p-3.5 bg-white border border-slate-100 hover:border-emerald-200 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-sm"
+            className="p-3.5 bg-gradient-to-br from-sky-600 to-cyan-500 border border-sky-300/60 hover:from-sky-500 hover:to-cyan-400 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-[0_0_22px_rgba(14,165,233,0.22)] text-white"
           >
-            <div className="p-2 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl">
+            <div className="p-2 bg-white/15 text-white border border-white/20 backdrop-blur-sm shadow-[0_0_14px_rgba(255,255,255,0.16)] rounded-xl">
               <Mic className="h-4.5 w-4.5" />
             </div>
             <div>
-              <span className="text-xs font-bold text-slate-800 block">Start Viva</span>
+              <span className="text-xs font-bold text-white block">Start Viva</span>
               <span className="text-[9px] text-slate-400 mt-0.5 font-medium block">Oral study practice drill</span>
             </div>
           </motion.button>

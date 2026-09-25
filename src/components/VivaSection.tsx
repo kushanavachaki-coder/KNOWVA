@@ -657,7 +657,11 @@ export default function VivaSection({
         </div>
 
         {/* Source Material Selector */}
-        <div className="p-5 bg-white border border-slate-100 rounded-2xl space-y-4 shadow-sm">
+        <motion.div
+          whileHover={{ y: -2, scale: 1.002 }}
+          transition={{ duration: 0.25 }}
+          className="w-full bg-gradient-to-br from-white via-sky-100/55 to-cyan-100/40 border border-sky-200/80 rounded-2xl p-4 shadow-[0_8px_24px_rgba(14,165,233,0.12)] text-left relative overflow-hidden"
+        >
           <h3 className="text-[10px] font-extrabold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
             <BookOpen className="h-4 w-4 text-sky-500" />
             <span>Select Syllabus Source Material</span>
@@ -681,13 +685,16 @@ export default function VivaSection({
               {uploadedMaterials.map(mat => {
                 const isSelected = selectedMaterial?.id === mat.id;
                 return (
-                  <div
+                  <motion.div
                     key={mat.id}
                     onClick={() => setSelectedMaterial(mat)}
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 group shadow-[0_6px_16px_rgba(14,165,233,0.12)] ${
-                      isSelected 
+                    whileHover={{ y: -1, scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    transition={{ type: "spring", stiffness: 320, damping: 20 }}
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 group shadow-[0_5px_14px_rgba(14,165,233,0.10)] ${
+                      isSelected
                         ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 border-sky-400 text-white shadow-[0_10px_24px_rgba(14,165,233,0.28)]'
-                        : 'bg-gradient-to-r from-sky-50/70 via-white to-cyan-50/70 border-sky-100 hover:from-sky-100 hover:to-cyan-50 hover:border-sky-300 hover:shadow-[0_7px_18px_rgba(14,165,233,0.16)]'
+                        : 'bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-sky-100 hover:from-sky-100 hover:to-cyan-50 hover:border-sky-300 hover:shadow-[0_8px_18px_rgba(14,165,233,0.16)]'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -700,7 +707,14 @@ export default function VivaSection({
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <ArrowRight className={`h-3.5 w-3.5 transition-colors ${isSelected ? 'text-white' : 'text-slate-400 group-hover:text-sky-500'}`} />
+                      <motion.span
+                        animate={{ x: isSelected ? 2 : 0 }}
+                        whileHover={{ x: 4 }}
+                        transition={{ type: "spring", stiffness: 420, damping: 18 }}
+                        className="shrink-0"
+                      >
+                        <ArrowRight className={`h-3.5 w-3.5 transition-colors ${isSelected ? 'text-white' : 'text-slate-400 group-hover:text-sky-500'}`} />
+                      </motion.span>
                       {isSelected && (
                         <div className="h-5 w-5 rounded-full bg-white/20 border border-white/40 text-white flex items-center justify-center shrink-0 shadow-sm">
                           <Check className="h-3 w-3 stroke-[3]" />
@@ -712,10 +726,14 @@ export default function VivaSection({
               })}
             </div>
           )}
-        </div>
+        </motion.div>
 
         {/* Drill Specs Card */}
-        <div className="p-4 bg-white border border-slate-100 rounded-2xl space-y-3 shadow-sm">
+        <motion.div
+          whileHover={{ y: -2, scale: 1.002 }}
+          transition={{ duration: 0.25 }}
+          className="w-full bg-gradient-to-br from-white via-sky-100/55 to-cyan-100/40 border border-sky-200/80 rounded-2xl p-4 shadow-[0_8px_24px_rgba(14,165,233,0.12)] text-left relative overflow-hidden"
+        >
           <div className="flex items-center gap-2 text-[10px] font-extrabold text-slate-800 uppercase tracking-wider">
             <Sparkles className="h-4 w-4 text-sky-500" />
             <span>Oral Examination Parameters</span>
@@ -741,30 +759,48 @@ export default function VivaSection({
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 text-center">
-              <div className="relative overflow-hidden p-3 rounded-xl border border-sky-200 bg-gradient-to-br from-sky-50 via-white to-cyan-50 shadow-[0_7px_16px_rgba(14,165,233,0.14)]">
+              <motion.div
+                whileHover={{ y: -1, scale: 1.015 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className="relative overflow-hidden p-3 rounded-xl border border-sky-200 bg-gradient-to-br from-white via-sky-50 to-cyan-50 shadow-[0_6px_14px_rgba(14,165,233,0.10)]"
+              >
                 <div className="absolute -right-5 -top-5 h-12 w-12 rounded-full bg-cyan-200/35 blur-lg pointer-events-none" />
                 <span className="relative text-[9px] text-sky-600 font-extrabold block uppercase tracking-wider">Length</span>
                 <span className="relative text-xs font-extrabold text-slate-800">5 Questions</span>
-              </div>
-              <div className="relative overflow-hidden p-3 rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 via-white to-sky-50 shadow-[0_7px_16px_rgba(37,99,235,0.14)]">
+              </motion.div>
+              <motion.div
+                whileHover={{ y: -1, scale: 1.015 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className="relative overflow-hidden p-3 rounded-xl border border-sky-200 bg-gradient-to-br from-white via-sky-50 to-cyan-50 shadow-[0_6px_14px_rgba(14,165,233,0.10)]"
+              >
                 <div className="absolute -left-5 -bottom-5 h-12 w-12 rounded-full bg-sky-200/35 blur-lg pointer-events-none" />
-                <span className="relative text-[9px] text-blue-600 font-extrabold block uppercase tracking-wider">Focus</span>
+                <span className="relative text-[9px] text-sky-600 font-extrabold block uppercase tracking-wider">Focus</span>
                 <span className="relative text-xs font-extrabold text-slate-800">Syllabus Grounded</span>
-              </div>
+              </motion.div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Start Button */}
         <div className="text-center pt-2">
-          <button
+          <motion.button
             onClick={handleStartSession}
             disabled={!selectedMaterial}
-            className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 hover:from-sky-600 hover:via-blue-700 hover:to-cyan-600 disabled:bg-slate-200 disabled:from-slate-200 disabled:via-slate-200 disabled:to-slate-200 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-[0_6px_14px_rgba(14,165,233,0.24)] border border-sky-400/60 flex items-center justify-center gap-2"
+            whileHover={selectedMaterial ? { y: -2, scale: 1.015 } : undefined}
+            whileTap={selectedMaterial ? { scale: 0.985 } : undefined}
+            transition={{ type: "spring", stiffness: 300, damping: 18 }}
+            className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 hover:from-sky-600 hover:via-blue-700 hover:to-cyan-600 disabled:bg-slate-200 disabled:from-slate-200 disabled:via-slate-200 disabled:to-slate-200 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-[0_8px_18px_rgba(14,165,233,0.26)] border border-sky-400/60 flex items-center justify-center gap-2 group"
           >
-            <Mic className="h-4 w-4" />
+            <Mic className="h-4 w-4 drop-shadow-[0_2px_3px_rgba(255,255,255,0.25)]" />
             <span>Start Oral Viva Drill (5 Questions)</span>
-          </button>
+            <motion.span
+              animate={{ x: 0 }}
+              whileHover={{ x: 4 }}
+              transition={{ type: "spring", stiffness: 420, damping: 18 }}
+            >
+              <ArrowRight className="h-3.5 w-3.5" />
+            </motion.span>
+          </motion.button>
         </div>
       </div>
     );

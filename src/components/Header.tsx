@@ -113,31 +113,48 @@ export default function Header({ activeTab, onTabChange, materialsCount }: Heade
             const isActive = activeTab === item.id;
 
             return (
-              <button
+              <motion.button
                 key={item.id}
                 id={`mobile-nav-tab-${item.id}`}
                 onClick={() => onTabChange(item.id)}
-                className="relative flex flex-col items-center justify-center w-14 h-full gap-0.5 text-center cursor-pointer focus:outline-none"
+                whileHover={{ y: -2, scale: 1.04 }}
+                whileTap={{ scale: 0.94 }}
+                transition={{ type: "spring", stiffness: 420, damping: 20 }}
+                className="relative flex flex-col items-center justify-center w-14 h-12 gap-0.5 text-center cursor-pointer focus:outline-none"
                 style={{ minWidth: '44px', minHeight: '44px' }}
               >
                 {isActive && (
-                  <motion.div 
+                  <motion.div
                     layoutId="activeTabIndicatorMobile"
-                    className="absolute w-12 h-10 bg-sky-50 border border-sky-100/50 rounded-xl -z-10"
-                    transition={{ type: "spring", stiffness: 400, damping: 28 }}
-                  />
+                    initial={{ opacity: 0, scale: 0.82, rotateX: -8 }}
+                    animate={{ opacity: 1, scale: 1, rotateX: 0 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 24 }}
+                    className="absolute w-12 h-11 rounded-xl bg-gradient-to-br from-sky-500 via-blue-600 to-cyan-500 border border-sky-300/80 shadow-[0_7px_18px_rgba(14,165,233,0.28)] -z-10"
+                    style={{ transformPerspective: 700 }}
+                  >
+                    <motion.div
+                      animate={{ x: [0, 2, 0], y: [0, -1, 0] }}
+                      transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                      className="absolute -right-2 -top-2 h-8 w-8 rounded-full bg-cyan-200/25 blur-lg pointer-events-none"
+                    />
+                  </motion.div>
                 )}
-                <div className={`transition-colors duration-200 ${
-                  isActive ? 'text-sky-600' : 'text-slate-400'
-                }`}>
+                <motion.div
+                  animate={isActive ? { y: [0, -1.5, 0], rotateX: [0, -4, 0] } : { y: 0, rotateX: 0 }}
+                  transition={isActive ? { duration: 2.2, repeat: Infinity, ease: "easeInOut" } : { duration: 0.2 }}
+                  style={{ transformPerspective: 700 }}
+                  className={`relative z-10 transition-colors duration-200 ${
+                    isActive ? 'text-white drop-shadow-[0_2px_3px_rgba(255,255,255,0.30)]' : 'text-slate-400 group-hover:text-sky-500'
+                  }`}
+                >
                   <IconComponent className="h-4.5 w-4.5" />
-                </div>
-                <span className={`text-[9px] tracking-wide font-bold transition-colors duration-200 ${
-                  isActive ? 'text-sky-600 font-extrabold' : 'text-slate-500'
+                </motion.div>
+                <span className={`relative z-10 text-[9px] tracking-wide font-bold transition-colors duration-200 ${
+                  isActive ? 'text-white font-extrabold drop-shadow-[0_1px_2px_rgba(0,0,0,0.10)]' : 'text-slate-500'
                 }`}>
                   {item.label}
                 </span>
-              </button>
+              </motion.button>
             );
           })}
         </div>

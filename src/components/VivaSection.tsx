@@ -258,13 +258,16 @@ export default function VivaSection({
 
     setSpeechError(null);
     try {
-      const recognition = new SpeechRecognitionAPI();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
+
 
       // Capture the base text at the start
       const baseText = studentAnswer.trim();
+
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const recognition = new SpeechRecognitionAPI();
+      recognition.continuous = !isMobile;
+      recognition.interimResults = !isMobile;
+      recognition.lang = 'en-US';
 
       recognition.onstart = () => {
         console.log('[SPEECH RECOGNITION START]');
@@ -274,27 +277,40 @@ export default function VivaSection({
 
       recognition.onresult = (event: any) => {
         console.log('[SPEECH RECOGNITION RESULT]');
-        let finalizedParts: string[] = [];
-        let interimTranscript = '';
-
-        for (let i = 0; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalizedParts.push(event.results[i][0].transcript.trim());
-          } else {
-            interimTranscript = event.results[i][0].transcript;
-          }
-        }
-
-        const finalJoined = finalizedParts.join(' ');
-        let currentAnswer = baseText;
         
-        if (finalJoined) {
-          currentAnswer = (currentAnswer ? currentAnswer + ' ' : '') + finalJoined;
+        if (isMobile) {
+          // Mobile: Take only the latest finalized transcript segment
+          const lastResult = event.results[event.results.length - 1];
+          if (lastResult.isFinal) {
+            const transcript = lastResult[0].transcript.trim();
+            if (transcript) {
+              setStudentAnswer((prev) => (prev ? prev + ' ' + transcript : transcript));
+            }
+          }
+        } else {
+          // Desktop: Reconstruct to handle interim/final properly for continuous recognition
+          let finalizedParts: string[] = [];
+          let interimTranscript = '';
+
+          for (let i = 0; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalizedParts.push(event.results[i][0].transcript.trim());
+            } else {
+              interimTranscript = event.results[i][0].transcript;
+            }
+          }
+
+          const finalJoined = finalizedParts.join(' ');
+          let currentAnswer = baseText;
+          
+          if (finalJoined) {
+            currentAnswer = (currentAnswer ? currentAnswer + ' ' : '') + finalJoined;
+          }
+          if (interimTranscript) {
+            currentAnswer = (currentAnswer ? currentAnswer + ' ' : '') + interimTranscript;
+          }
+          setStudentAnswer(currentAnswer);
         }
-        if (interimTranscript) {
-          currentAnswer = (currentAnswer ? currentAnswer + ' ' : '') + interimTranscript;
-        }
-        setStudentAnswer(currentAnswer);
       };
 
       recognition.onerror = (event: any) => {
@@ -327,7 +343,13 @@ export default function VivaSection({
 
       recognition.onend = () => {
         console.log('[SPEECH RECOGNITION END]');
-        setIsListening(false);
+        if (isMobile && isListening) {
+          // Natural end on mobile, restart recognition loop
+          recognition.start();
+        } else {
+          // Manual stop or desktop
+          setIsListening(false);
+        }
       };
 
       recognitionRef.current = recognition;

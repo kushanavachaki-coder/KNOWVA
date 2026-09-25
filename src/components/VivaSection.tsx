@@ -721,7 +721,7 @@ export default function VivaSection({
                         </div>
                       )}
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>

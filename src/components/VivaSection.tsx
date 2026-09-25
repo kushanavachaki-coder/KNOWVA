@@ -256,17 +256,6 @@ export default function VivaSection({
       return;
     }
 
-    // Check permissions
-    try {
-      const permissionStatus = await (navigator as any).permissions.query({ name: 'microphone' });
-      if (permissionStatus.state === 'denied') {
-        setSpeechError('Voice input is unavailable in the AI Studio preview because microphone access is blocked by the preview environment. You can still type your answer normally.');
-        return;
-      }
-    } catch (err) {
-      // Proceed if permission query is not supported
-    }
-
     setSpeechError(null);
     try {
       const recognition = new SpeechRecognitionAPI();
@@ -279,11 +268,13 @@ export default function VivaSection({
       let lastFinalTranscript = '';
 
       recognition.onstart = () => {
+        console.log('[SPEECH RECOGNITION START]');
         setIsListening(true);
         setInputMethodUsed('voice');
       };
 
       recognition.onresult = (event: any) => {
+        console.log('[SPEECH RECOGNITION RESULT]');
         let interimTranscript = '';
         let finalTranscript = '';
 
@@ -306,35 +297,34 @@ export default function VivaSection({
 
       recognition.onerror = (event: any) => {
         const error = event.error;
-        if (error !== 'not-allowed' && error !== 'permission-denied') {
-          console.error('[SPEECH RECOGNITION ERROR]', error);
-        }
+        console.log('[SPEECH RECOGNITION ERROR]', error);
+        
         setIsListening(false);
 
         switch (error) {
           case 'not-allowed':
           case 'permission-denied':
-          case 'service-not-allowed':
-            setSpeechError('Voice input is unavailable in the AI Studio preview because microphone access is blocked by the preview environment. You can still type your answer normally.');
+            setSpeechError('Microphone permission denied. Please enable microphone access in your browser settings.');
             break;
-          case 'no-speech':
-            setSpeechError('No speech detected. Please try again.');
+          case 'service-not-allowed':
+            setSpeechError('Speech recognition service is not allowed.');
             break;
           case 'audio-capture':
-            setSpeechError('No microphone was detected.');
+            setSpeechError('No microphone detected.');
             break;
           case 'network':
-            setSpeechError('Speech recognition network error. Please try again.');
+            setSpeechError('Network error during speech recognition.');
             break;
-          case 'aborted':
-            setSpeechError(null);
+          case 'no-speech':
+            setSpeechError('No speech detected.');
             break;
           default:
-            setSpeechError('Speech recognition failed. Please try again.');
+            setSpeechError('Speech recognition error: ' + error);
         }
       };
 
       recognition.onend = () => {
+        console.log('[SPEECH RECOGNITION END]');
         setIsListening(false);
       };
 

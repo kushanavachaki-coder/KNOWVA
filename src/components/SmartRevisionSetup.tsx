@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Sparkles, ArrowLeft, BookOpen, Clock, ChevronRight } from 'lucide-react';
+import { Sparkles, ArrowLeft, BookOpen, Clock, ChevronRight, Brain } from 'lucide-react';
 import { StudyMaterial } from '../types';
 
 interface SmartRevisionSetupProps {
@@ -30,9 +30,21 @@ export default function SmartRevisionSetup({ materials, onBack, onStart }: Smart
         <ArrowLeft className="h-4 w-4" /> Back to Home
       </button>
 
-      <div className="space-y-2">
-        <h1 className="text-xl font-bold text-slate-800">Smart Revision</h1>
-        <p className="text-sm text-slate-500 font-medium">Let Knowva decide what you should revise.</p>
+      <div className="text-center space-y-2">
+        <motion.div
+          initial={{ rotateX: -12, rotateY: 10, y: 4, scale: 0.94, opacity: 0 }}
+          animate={{ rotateX: 0, rotateY: 0, y: 0, scale: 1, opacity: 1 }}
+          whileHover={{ rotateX: -8, rotateY: 10, y: -3, scale: 1.06 }}
+          transition={{ type: "spring", stiffness: 260, damping: 16 }}
+          style={{ transformPerspective: 700 }}
+          className="inline-flex p-3 bg-gradient-to-br from-sky-100 via-white to-cyan-100 text-sky-600 rounded-2xl border border-sky-200 shadow-[0_8px_18px_rgba(14,165,233,0.16)] mb-1"
+        >
+          <Brain className="h-5.5 w-5.5 drop-shadow-[0_3px_3px_rgba(14,165,233,0.22)]" />
+        </motion.div>
+        <h1 className="text-lg font-bold text-slate-800 tracking-tight">Adaptive Smart Revision</h1>
+        <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed font-semibold">
+          Review the concepts that need the most attention through a focused adaptive revision session.
+        </p>
       </div>
 
       {materials.length === 0 ? (

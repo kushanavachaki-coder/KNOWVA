@@ -257,20 +257,30 @@ export default function ChatSection({
     <div id="chat-section-container" className="flex flex-col flex-1 h-full relative bg-slate-50/20 text-left">
       
       {/* Top status bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-white via-sky-100/70 to-cyan-100/60 border-b border-sky-200/80 text-[10px] text-slate-500 sticky top-0 z-10 shadow-[0_4px_14px_rgba(14,165,233,0.10)] font-sans relative overflow-hidden">
-        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-1.5 font-bold">
+      <motion.div
+        initial={{ opacity: 0, y: -5 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-between mx-3 mt-2 px-3 py-2.5 bg-gradient-to-br from-white via-sky-50 to-cyan-50 border border-sky-200/90 rounded-2xl text-[10px] text-slate-500 sticky top-0 z-10 shadow-[0_8px_20px_rgba(14,165,233,0.11)] font-sans relative overflow-hidden"
+      >
+        <div className="absolute -right-8 -top-8 w-20 h-20 rounded-full bg-sky-200/30 blur-xl pointer-events-none" />
+        <div className="absolute -left-6 -bottom-8 w-16 h-16 rounded-full bg-cyan-200/25 blur-xl pointer-events-none" />
+        <div className="relative flex items-center gap-1.5 font-bold">
           <span className={`w-2 h-2 rounded-full ${materials.length > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></span>
           <span>
             {materials.length > 0 
               ? `${materials.length} active study source${materials.length > 1 ? 's' : ''}` 
               : "No study materials connected"}
           </span>
-        </motion.div>
-        <motion.span whileHover={{ y: -1, scale: 1.02 }} transition={{ duration: 0.2 }} className="text-[9px] uppercase font-extrabold text-sky-700 tracking-wider flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/80 border border-sky-200/80 shadow-[0_3px_10px_rgba(14,165,233,0.12)]">
+        </div>
+        <motion.span
+          whileHover={{ y: -1, scale: 1.03 }}
+          transition={{ duration: 0.2 }}
+          className="relative text-[9px] uppercase font-extrabold text-sky-700 tracking-wider flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/85 border border-sky-200 shadow-[0_4px_12px_rgba(14,165,233,0.14)]"
+        >
           <Sparkles className="h-3 w-3" />
           <span>Study Workspace</span>
         </motion.span>
-      </div>
+      </motion.div>
 
       {/* Messages View Area */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -278,9 +288,16 @@ export default function ChatSection({
         {/* EMPTY STATE */}
         {messages.length === 0 && (
           <div id="chat-empty-state" className="max-w-md mx-auto py-8 text-center space-y-4">
-            <div className="inline-flex p-3 bg-sky-50 text-sky-600 rounded-xl border border-sky-100 shadow-sm">
-              <BookOpen className="h-5.5 w-5.5" />
-            </div>
+            <motion.div
+              initial={{ rotateX: -12, rotateY: 10, y: 4, scale: 0.94, opacity: 0 }}
+              animate={{ rotateX: 0, rotateY: 0, y: 0, scale: 1, opacity: 1 }}
+              whileHover={{ rotateX: -8, rotateY: 10, y: -3, scale: 1.06 }}
+              transition={{ type: "spring", stiffness: 260, damping: 16 }}
+              style={{ transformPerspective: 700 }}
+              className="inline-flex p-3 bg-gradient-to-br from-sky-100 via-white to-cyan-100 text-sky-600 rounded-2xl border border-sky-200 shadow-[0_8px_18px_rgba(14,165,233,0.16)]"
+            >
+              <BookOpen className="h-5.5 w-5.5 drop-shadow-[0_3px_3px_rgba(14,165,233,0.22)]" />
+            </motion.div>
 
             <div className="space-y-1">
               <h1 className="text-base font-bold text-slate-800 tracking-tight">
@@ -596,13 +613,17 @@ export default function ChatSection({
               className="flex-1 py-3 text-xs text-slate-800 bg-transparent focus:outline-none min-w-0 placeholder-slate-400 font-semibold"
             />
             
-            <button
+            <motion.button
               type="submit"
-              className="p-2 bg-sky-500 hover:bg-sky-600 text-white rounded-xl transition-colors flex items-center justify-center cursor-pointer shrink-0 shadow-md shadow-sky-500/15"
+              whileHover={{ y: -2, scale: 1.08, rotate: -3 }}
+              whileTap={{ scale: 0.92, rotate: 2 }}
+              transition={{ type: "spring", stiffness: 420, damping: 18 }}
+              style={{ transformPerspective: 600 }}
+              className="p-2 bg-gradient-to-br from-sky-500 via-blue-600 to-cyan-500 text-white rounded-xl flex items-center justify-center cursor-pointer shrink-0 shadow-[0_6px_14px_rgba(14,165,233,0.28)] border border-sky-400/60"
               title="Submit question"
             >
-              <Send className="h-3 w-3" />
-            </button>
+              <Send className="h-3 w-3 drop-shadow-[0_2px_2px_rgba(0,0,0,0.18)]" />
+            </motion.button>
           </div>
           
           <p className="text-[9px] text-center text-slate-400 mt-2 font-semibold">

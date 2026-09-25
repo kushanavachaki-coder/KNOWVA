@@ -46,21 +46,51 @@ export default function Header({ activeTab, onTabChange, materialsCount }: Heade
           onClick={() => onTabChange('home')}
           className="flex items-center gap-1.5 cursor-pointer text-left focus:outline-none group"
         >
-          <motion.div 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="h-8 w-8 bg-gradient-to-tr from-sky-500 to-blue-600 text-white rounded-lg flex items-center justify-center shadow-md shadow-sky-500/20"
+          <motion.div
+            initial={{ rotateX: -12, rotateY: 8, scale: 0.9, opacity: 0 }}
+            animate={{ rotateX: 0, rotateY: 0, scale: 1, opacity: 1 }}
+            whileHover={{ rotateX: -8, rotateY: 8, scale: 1.06, y: -2 }}
+            whileTap={{ scale: 0.94 }}
+            transition={{ type: "spring", stiffness: 280, damping: 16 }}
+            style={{ transformPerspective: 700 }}
+            className="relative h-9 w-9 bg-gradient-to-br from-sky-500 via-blue-600 to-cyan-500 text-white rounded-xl flex items-center justify-center shadow-[0_7px_18px_rgba(14,165,233,0.30)] border border-sky-300/70 overflow-hidden"
           >
-            <Sparkles className="h-4 w-4" />
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+              className="absolute -inset-3 rounded-full border border-cyan-200/20"
+            />
+            <motion.div
+              animate={{ x: [0, 2, 0], y: [0, -1, 0] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute -right-2 -top-2 h-7 w-7 rounded-full bg-cyan-200/30 blur-md"
+            />
+            <Sparkles className="relative h-4 w-4 drop-shadow-[0_3px_3px_rgba(255,255,255,0.35)]" />
           </motion.div>
-          <div>
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-bold tracking-widest text-sky-600 group-hover:text-sky-700 transition-colors">KNOWVA</span>
-              <span className="w-1.5 h-1.5 bg-sky-500 rounded-full animate-pulse"></span>
-            </div>
-            <span className="text-[8px] text-sky-600 font-bold tracking-widest block leading-none uppercase">
+          <div className="relative">
+            <motion.div
+              initial={{ opacity: 0, x: -5 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.12, duration: 0.35 }}
+              className="flex items-center gap-1"
+            >
+              <span className="text-[15px] font-extrabold tracking-[0.18em] bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 bg-clip-text text-transparent drop-shadow-[0_2px_2px_rgba(14,165,233,0.20)]">
+                KNOWVA
+              </span>
+              <motion.span
+                animate={{ scale: [1, 1.25, 1], opacity: [0.7, 1, 0.7] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                className="w-1.5 h-1.5 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.75)]"
+              />
+            </motion.div>
+            <motion.span
+              initial={{ opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.22, duration: 0.4 }}
+              className="text-[8px] text-sky-600 font-extrabold tracking-[0.14em] block leading-none uppercase drop-shadow-[0_1px_2px_rgba(14,165,233,0.14)]"
+            >
               SMARTER STUDY, SIMPLIFIED
-            </span>
+            </motion.span>
           </div>
         </button>
 

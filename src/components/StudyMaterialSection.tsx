@@ -223,7 +223,7 @@ export default function StudyMaterialSection({
   };
 
   return (
-    <motion.div id="study-material-section" whileHover={{ y: -1 }} transition={{ duration: 0.2 }} className="w-full bg-gradient-to-br from-white via-sky-50/40 to-cyan-50/30 border border-sky-100/80 rounded-2xl p-4 shadow-[0_6px_20px_rgba(14,165,233,0.08)] text-left relative overflow-hidden">
+    <motion.div id="study-material-section" whileHover={{ y: -2, scale: 1.002 }} transition={{ duration: 0.25 }} className="w-full bg-gradient-to-br from-white via-sky-100/55 to-cyan-100/40 border border-sky-200/80 rounded-2xl p-4 shadow-[0_8px_24px_rgba(14,165,233,0.12)] text-left relative overflow-hidden">
       
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-0.5">
@@ -237,13 +237,13 @@ export default function StudyMaterialSection({
         </div>
 
         {/* Action button toggles */}
-        <div className="flex items-center gap-1.5 shrink-0 bg-white/70 p-1 rounded-xl border border-sky-100/70 shadow-sm">
+        <div className="flex items-center gap-1.5 shrink-0 bg-white/80 p-1 rounded-xl border border-sky-200/80 shadow-[0_3px_10px_rgba(14,165,233,0.10)]">
           <motion.button
-            whileTap={{ scale: 0.96 }}
+            whileHover={{ y: -1, scale: 1.02 }} whileTap={{ scale: 0.96 }}
             onClick={() => { setActiveMode(activeMode === 'pdf' ? 'none' : 'pdf'); setErrorMessage(''); }}
             className={`px-3 py-1.5 text-[9px] font-bold tracking-wider uppercase rounded-xl transition-all duration-200 cursor-pointer border flex items-center gap-1 ${
               activeMode === 'pdf'
-                ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white border-sky-500 shadow-md shadow-sky-500/20'
+                ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 text-white border-sky-500 shadow-[0_5px_14px_rgba(14,165,233,0.22)]'
                 : 'bg-white/80 text-slate-600 border-sky-100/70 hover:bg-sky-50 hover:text-sky-700'
             }`}
           >

@@ -900,7 +900,11 @@ export default function VivaSection({
         </div>
 
         {/* Question Prompt Card */}
-        <div className="p-5 bg-white border border-slate-100 rounded-2xl space-y-3 shadow-sm">
+        <motion.div
+          whileHover={{ y: -2, scale: 1.002 }}
+          transition={{ duration: 0.25 }}
+          className="w-full bg-gradient-to-br from-white via-sky-100/55 to-cyan-100/40 border border-sky-200/80 rounded-2xl p-5 shadow-[0_8px_24px_rgba(14,165,233,0.12)] space-y-3 text-left relative overflow-hidden"
+        >
           <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
             <HelpCircle className="h-3.5 w-3.5 text-sky-500" />
             <span>Oral Examiner Question</span>
@@ -921,10 +925,14 @@ export default function VivaSection({
             <BookOpen className="h-3 w-3 text-sky-500" />
             <span>Source: {selectedMaterial?.name}</span>
           </div>
-        </div>
+        </motion.div>
 
         {/* Student Response Area */}
-        <div className="p-5 bg-white border border-slate-100 rounded-2xl space-y-3 shadow-sm">
+        <motion.div
+          whileHover={{ y: -2, scale: 1.002 }}
+          transition={{ duration: 0.25 }}
+          className="w-full bg-gradient-to-br from-white via-sky-100/55 to-cyan-100/40 border border-sky-200/80 rounded-2xl p-5 shadow-[0_8px_24px_rgba(14,165,233,0.12)] space-y-3 text-left relative overflow-hidden"
+        >
           <label className="block text-[10px] font-extrabold text-slate-700 uppercase tracking-wider">
             Your Spoken/Typed Explanation
           </label>
@@ -966,17 +974,26 @@ export default function VivaSection({
               <span>Voice input isn't supported in this browser. You can type your answer instead.</span>
             </div>
           )}
-        </div>
+        </motion.div>
 
         {/* Submit Action */}
-        <button
+        <motion.button
           onClick={handleSubmitAnswer}
           disabled={!studentAnswer.trim()}
-          className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 hover:from-sky-600 hover:via-blue-700 hover:to-cyan-600 disabled:bg-slate-200 disabled:from-slate-200 disabled:via-slate-200 disabled:to-slate-200 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-[0_6px_14px_rgba(14,165,233,0.24)] border border-sky-400/60 flex items-center justify-center gap-2"
+          whileHover={studentAnswer.trim() ? { y: -2, scale: 1.015 } : undefined}
+          whileTap={studentAnswer.trim() ? { scale: 0.985 } : undefined}
+          transition={{ type: "spring", stiffness: 300, damping: 18 }}
+          className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 hover:from-sky-600 hover:via-blue-700 hover:to-cyan-600 disabled:bg-slate-200 disabled:from-slate-200 disabled:via-slate-200 disabled:to-slate-200 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-[0_8px_18px_rgba(14,165,233,0.26)] border border-sky-400/60 flex items-center justify-center gap-2 group"
         >
-          <Send className="h-4 w-4" />
+          <Send className="h-4 w-4 drop-shadow-[0_2px_3px_rgba(255,255,255,0.25)]" />
           <span>Submit Answer for Evaluation</span>
-        </button>
+          <motion.span
+            whileHover={{ x: 4 }}
+            transition={{ type: "spring", stiffness: 420, damping: 18 }}
+          >
+            <ArrowRight className="h-3.5 w-3.5" />
+          </motion.span>
+        </motion.button>
       </div>
     );
   }

@@ -55,11 +55,11 @@ export default function Header({ activeTab, onTabChange, materialsCount }: Heade
           </motion.div>
           <div>
             <div className="flex items-center gap-1">
-              <span className="text-sm font-bold tracking-widest text-slate-800 group-hover:text-sky-600 transition-colors">KNOWVA</span>
+              <span className="text-sm font-bold tracking-widest text-sky-600 group-hover:text-sky-700 transition-colors">KNOWVA</span>
               <span className="w-1.5 h-1.5 bg-sky-500 rounded-full animate-pulse"></span>
             </div>
             <span className="text-[8px] text-sky-600 font-bold tracking-widest block leading-none uppercase">
-              STUDY COMPANION
+              SMARTER STUDY, SIMPLIFIED
             </span>
           </div>
         </button>

@@ -1424,7 +1424,11 @@ Rules for answering:
 
       // Retrieve relevant material content or chunks from Firestore
       let materialContext = "";
-      const chunksSnap = await db.collection("chunks").where("userId", "==", userId).get();
+      let chunksQuery = db.collection("chunks").where("userId", "==", userId);
+      if (documentId) {
+        chunksQuery = chunksQuery.where("documentId", "==", documentId);
+      }
+      const chunksSnap = await chunksQuery.get();
 
       const matchingChunks: any[] = [];
       chunksSnap.forEach((docSnap: any) => {
@@ -1580,7 +1584,7 @@ REQUIREMENTS:
 5. Set questionType to one of: 'follow_up', 'clarification', 'deeper_reasoning', 'mechanism', 'comparison', 'application', 'foundational'.
 6. Provide targetConcept and a concise internal 'reason' for selecting this question.`;
 
-      const vivaModels = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.6-flash"];
+      const vivaModels = ["gemini-3.5-flash", "gemini-3.5-flash-lite"];
       let questionResult: any = null;
       let lastErr: any = null;
 

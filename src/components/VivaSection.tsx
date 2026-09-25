@@ -420,7 +420,7 @@ export default function VivaSection({
             conceptsTested,
             conceptsNeedingReview
           })
-        }, 60000);
+        }, 90000);
 
         const data = await response.json();
 

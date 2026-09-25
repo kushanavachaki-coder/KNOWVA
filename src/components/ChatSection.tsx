@@ -257,19 +257,19 @@ export default function ChatSection({
     <div id="chat-section-container" className="flex flex-col flex-1 h-full relative bg-slate-50/20 text-left">
       
       {/* Top status bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-white via-sky-50/60 to-cyan-50/50 border-b border-sky-100/70 text-[10px] text-slate-500 sticky top-0 z-10 shadow-[0_2px_8px_rgba(14,165,233,0.06)] font-sans">
-        <div className="flex items-center gap-1.5 font-bold">
+      <div className="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-white via-sky-100/70 to-cyan-100/60 border-b border-sky-200/80 text-[10px] text-slate-500 sticky top-0 z-10 shadow-[0_4px_14px_rgba(14,165,233,0.10)] font-sans relative overflow-hidden">
+        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-1.5 font-bold">
           <span className={`w-2 h-2 rounded-full ${materials.length > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></span>
           <span>
             {materials.length > 0 
               ? `${materials.length} active study source${materials.length > 1 ? 's' : ''}` 
               : "No study materials connected"}
           </span>
-        </div>
-        <span className="text-[9px] uppercase font-extrabold text-sky-700 tracking-wider flex items-center gap-1 px-2.5 py-1 rounded-full bg-sky-100/70 border border-sky-200/60 shadow-sm">
+        </motion.div>
+        <motion.span whileHover={{ y: -1, scale: 1.02 }} transition={{ duration: 0.2 }} className="text-[9px] uppercase font-extrabold text-sky-700 tracking-wider flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/80 border border-sky-200/80 shadow-[0_3px_10px_rgba(14,165,233,0.12)]">
           <Sparkles className="h-3 w-3" />
           <span>Study Workspace</span>
-        </span>
+        </motion.span>
       </div>
 
       {/* Messages View Area */}

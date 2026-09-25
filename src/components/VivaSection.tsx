@@ -640,9 +640,16 @@ export default function VivaSection({
       <div className="max-w-xl mx-auto px-4 py-4 sm:py-8 space-y-6 pb-24 text-left font-sans">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center p-3 bg-sky-50 text-sky-600 rounded-2xl border border-sky-100 shadow-sm mb-1">
-            <Mic className="h-6 w-6" />
-          </div>
+          <motion.div
+            initial={{ rotateX: -12, rotateY: 10, y: 4, scale: 0.94, opacity: 0 }}
+            animate={{ rotateX: 0, rotateY: 0, y: 0, scale: 1, opacity: 1 }}
+            whileHover={{ rotateX: -8, rotateY: 10, y: -3, scale: 1.06 }}
+            transition={{ type: "spring", stiffness: 260, damping: 16 }}
+            style={{ transformPerspective: 700 }}
+            className="inline-flex p-3 bg-gradient-to-br from-sky-100 via-white to-cyan-100 text-sky-600 rounded-2xl border border-sky-200 shadow-[0_8px_18px_rgba(14,165,233,0.16)] mb-1"
+          >
+            <Mic className="h-5.5 w-5.5 drop-shadow-[0_3px_3px_rgba(14,165,233,0.22)]" />
+          </motion.div>
           <h1 className="text-lg font-bold text-slate-800 tracking-tight">Adaptive Oral Viva Drill</h1>
           <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed font-semibold">
             Test your understanding through a 5-question oral examination grounded strictly in your syllabus.
@@ -677,10 +684,10 @@ export default function VivaSection({
                   <div
                     key={mat.id}
                     onClick={() => setSelectedMaterial(mat)}
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 group shadow-[0_4px_12px_rgba(14,165,233,0.08)] ${
                       isSelected 
-                        ? 'bg-sky-50/80 border-sky-300 shadow-sm' 
-                        : 'bg-slate-50/60 border-slate-100 hover:border-slate-200'
+                        ? 'bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-sky-300 shadow-[0_6px_16px_rgba(14,165,233,0.12)]' 
+                        : 'bg-gradient-to-r from-sky-50/70 via-white to-cyan-50/70 border-sky-100 hover:from-sky-100 hover:to-cyan-50 hover:border-sky-300'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -692,11 +699,14 @@ export default function VivaSection({
                         </span>
                       </div>
                     </div>
-                    {isSelected && (
-                      <div className="h-5 w-5 rounded-full bg-sky-500 text-white flex items-center justify-center shrink-0">
-                        <Check className="h-3 w-3 stroke-[3]" />
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <ArrowRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-sky-500 transition-colors" />
+                      {isSelected && (
+                        <div className="h-5 w-5 rounded-full bg-sky-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                          <Check className="h-3 w-3 stroke-[3]" />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -719,10 +729,10 @@ export default function VivaSection({
                   <button
                     key={level}
                     onClick={() => setDifficultySetup(level)}
-                    className={`py-2 text-xs font-bold rounded-xl border transition-all ${
+                    className={`py-2.5 text-xs font-bold rounded-xl border transition-all shadow-[0_4px_12px_rgba(14,165,233,0.06)] ${
                       difficultySetup === level
-                        ? 'bg-sky-50 border-sky-300 text-sky-700'
-                        : 'bg-slate-50 border-slate-100 text-slate-600 hover:border-slate-200'
+                        ? 'bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-sky-300 text-sky-700 shadow-[0_5px_14px_rgba(14,165,233,0.12)]'
+                        : 'bg-white border-sky-100 text-slate-600 hover:bg-gradient-to-r hover:from-sky-50 hover:to-cyan-50 hover:border-sky-300'
                     }`}
                   >
                     {level.charAt(0).toUpperCase() + level.slice(1)}
@@ -748,7 +758,7 @@ export default function VivaSection({
           <button
             onClick={handleStartSession}
             disabled={!selectedMaterial}
-            className="w-full py-3 bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-md shadow-sky-500/10 border-none flex items-center justify-center gap-2"
+            className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 hover:from-sky-600 hover:via-blue-700 hover:to-cyan-600 disabled:bg-slate-200 disabled:from-slate-200 disabled:via-slate-200 disabled:to-slate-200 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-[0_6px_14px_rgba(14,165,233,0.24)] border border-sky-400/60 flex items-center justify-center gap-2"
           >
             <Mic className="h-4 w-4" />
             <span>Start Oral Viva Drill (5 Questions)</span>
@@ -893,8 +903,10 @@ export default function VivaSection({
             <span>{studentAnswer.trim().length} characters</span>
             <button
               onClick={handleMicToggle}
-              className={`flex items-center gap-1 transition-colors ${
-                isListening ? 'text-sky-600' : 'text-sky-500 hover:text-sky-700'
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all shadow-[0_4px_12px_rgba(14,165,233,0.08)] ${
+                isListening
+                  ? 'bg-sky-50 border-sky-300 text-sky-700'
+                  : 'bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-sky-100 text-sky-600 hover:border-sky-300 hover:text-sky-700'
               }`}
             >
               <Mic className={`h-3 w-3 ${isListening ? 'animate-pulse' : ''}`} />
@@ -922,7 +934,7 @@ export default function VivaSection({
         <button
           onClick={handleSubmitAnswer}
           disabled={!studentAnswer.trim()}
-          className="w-full py-3 bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-md shadow-sky-500/10 border-none flex items-center justify-center gap-2"
+          className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 hover:from-sky-600 hover:via-blue-700 hover:to-cyan-600 disabled:bg-slate-200 disabled:from-slate-200 disabled:via-slate-200 disabled:to-slate-200 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-[0_6px_14px_rgba(14,165,233,0.24)] border border-sky-400/60 flex items-center justify-center gap-2"
         >
           <Send className="h-4 w-4" />
           <span>Submit Answer for Evaluation</span>

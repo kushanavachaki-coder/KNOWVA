@@ -265,7 +265,6 @@ export default function VivaSection({
 
       // Capture the base text at the start
       const baseText = studentAnswer.trim();
-      let lastFinalTranscript = '';
 
       recognition.onstart = () => {
         console.log('[SPEECH RECOGNITION START]');
@@ -275,24 +274,27 @@ export default function VivaSection({
 
       recognition.onresult = (event: any) => {
         console.log('[SPEECH RECOGNITION RESULT]');
+        let finalizedParts: string[] = [];
         let interimTranscript = '';
-        let finalTranscript = '';
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        for (let i = 0; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
+            finalizedParts.push(event.results[i][0].transcript.trim());
           } else {
-            interimTranscript += event.results[i][0].transcript;
+            interimTranscript = event.results[i][0].transcript;
           }
         }
 
-        // Merge base text with new final transcripts, appending new final text
-        if (finalTranscript) {
-          lastFinalTranscript += (lastFinalTranscript ? ' ' : '') + finalTranscript;
+        const finalJoined = finalizedParts.join(' ');
+        let currentAnswer = baseText;
+        
+        if (finalJoined) {
+          currentAnswer = (currentAnswer ? currentAnswer + ' ' : '') + finalJoined;
         }
-
-        const currentText = baseText + (lastFinalTranscript ? ' ' + lastFinalTranscript : '') + (interimTranscript ? (baseText || lastFinalTranscript ? ' ' : '') + interimTranscript : '');
-        setStudentAnswer(currentText);
+        if (interimTranscript) {
+          currentAnswer = (currentAnswer ? currentAnswer + ' ' : '') + interimTranscript;
+        }
+        setStudentAnswer(currentAnswer);
       };
 
       recognition.onerror = (event: any) => {

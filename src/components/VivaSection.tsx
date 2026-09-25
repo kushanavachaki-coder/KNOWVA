@@ -684,25 +684,25 @@ export default function VivaSection({
                   <div
                     key={mat.id}
                     onClick={() => setSelectedMaterial(mat)}
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 group shadow-[0_4px_12px_rgba(14,165,233,0.08)] ${
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 group shadow-[0_6px_16px_rgba(14,165,233,0.12)] ${
                       isSelected 
-                        ? 'bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-sky-300 shadow-[0_6px_16px_rgba(14,165,233,0.12)]' 
-                        : 'bg-gradient-to-r from-sky-50/70 via-white to-cyan-50/70 border-sky-100 hover:from-sky-100 hover:to-cyan-50 hover:border-sky-300'
+                        ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 border-sky-400 text-white shadow-[0_10px_24px_rgba(14,165,233,0.28)]'
+                        : 'bg-gradient-to-r from-sky-50/70 via-white to-cyan-50/70 border-sky-100 hover:from-sky-100 hover:to-cyan-50 hover:border-sky-300 hover:shadow-[0_7px_18px_rgba(14,165,233,0.16)]'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <FileText className={`h-4 w-4 shrink-0 ${isSelected ? 'text-sky-600' : 'text-slate-400'}`} />
+                      <FileText className={`h-4 w-4 shrink-0 ${isSelected ? 'text-white' : 'text-slate-400'}`} />
                       <div className="min-w-0">
-                        <span className="text-xs font-bold text-slate-800 truncate block">{mat.name}</span>
-                        <span className="text-[10px] text-slate-400 font-semibold block">
+                        <span className={`text-xs font-bold truncate block ${isSelected ? 'text-white' : 'text-slate-800'}`}>{mat.name}</span>
+                        <span className={`text-[10px] font-semibold block ${isSelected ? 'text-sky-100' : 'text-slate-400'}`}>
                           {mat.type.toUpperCase()} • {mat.fileSize || 'Syllabus Source'}
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <ArrowRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-sky-500 transition-colors" />
+                      <ArrowRight className={`h-3.5 w-3.5 transition-colors ${isSelected ? 'text-white' : 'text-slate-400 group-hover:text-sky-500'}`} />
                       {isSelected && (
-                        <div className="h-5 w-5 rounded-full bg-sky-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                        <div className="h-5 w-5 rounded-full bg-white/20 border border-white/40 text-white flex items-center justify-center shrink-0 shadow-sm">
                           <Check className="h-3 w-3 stroke-[3]" />
                         </div>
                       )}
@@ -741,13 +741,15 @@ export default function VivaSection({
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 text-center">
-              <div className="p-2.5 bg-slate-50 rounded-xl">
-                <span className="text-[9px] text-slate-400 font-bold block uppercase">Length</span>
-                <span className="text-xs font-extrabold text-slate-800">5 Questions</span>
+              <div className="relative overflow-hidden p-3 rounded-xl border border-sky-200 bg-gradient-to-br from-sky-50 via-white to-cyan-50 shadow-[0_7px_16px_rgba(14,165,233,0.14)]">
+                <div className="absolute -right-5 -top-5 h-12 w-12 rounded-full bg-cyan-200/35 blur-lg pointer-events-none" />
+                <span className="relative text-[9px] text-sky-600 font-extrabold block uppercase tracking-wider">Length</span>
+                <span className="relative text-xs font-extrabold text-slate-800">5 Questions</span>
               </div>
-              <div className="p-2.5 bg-slate-50 rounded-xl">
-                <span className="text-[9px] text-slate-400 font-bold block uppercase">Focus</span>
-                <span className="text-xs font-extrabold text-slate-800">Syllabus Grounded</span>
+              <div className="relative overflow-hidden p-3 rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 via-white to-sky-50 shadow-[0_7px_16px_rgba(37,99,235,0.14)]">
+                <div className="absolute -left-5 -bottom-5 h-12 w-12 rounded-full bg-sky-200/35 blur-lg pointer-events-none" />
+                <span className="relative text-[9px] text-blue-600 font-extrabold block uppercase tracking-wider">Focus</span>
+                <span className="relative text-xs font-extrabold text-slate-800">Syllabus Grounded</span>
               </div>
             </div>
           </div>

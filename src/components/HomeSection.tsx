@@ -87,15 +87,15 @@ export default function HomeSection({
       className="w-full max-w-md mx-auto space-y-5 pb-24 text-left font-sans"
     >
       {/* 1. BRANDING & GREETING ROW */}
-      <motion.div variants={itemVariants} className="flex items-center justify-between bg-gradient-to-r from-sky-50 to-blue-50/30 p-4 rounded-2xl border border-sky-100/50">
+      <motion.div variants={itemVariants} className="flex items-center justify-between bg-gradient-to-r from-sky-50 to-blue-50/30 p-4 rounded-2xl border border-sky-100/50 font-['IBM_Plex_Sans']">
         <div className="space-y-1">
-          <span className="text-[10px] font-bold tracking-[0.16em] text-sky-600 uppercase block">
+          <span className="text-[11px] font-semibold tracking-[0.12em] text-sky-700 uppercase block">
             YOUR STUDY SPACE
           </span>
-          <h1 className="text-[19px] leading-tight font-semibold text-slate-800 tracking-[-0.01em]">
+          <h1 className="text-[20px] leading-tight font-bold text-slate-900 tracking-[-0.015em]">
             {getGreeting()}, <span className="text-blue-600">{userName || 'Scholar'}</span>
           </h1>
-          <p className="text-xs leading-relaxed text-slate-500 font-medium">
+          <p className="text-[13px] leading-[1.5] text-slate-600 font-medium tracking-[-0.005em]">
             A focused workspace for learning, practice, and revision.
           </p>
         </div>

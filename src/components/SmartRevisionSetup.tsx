@@ -25,7 +25,7 @@ export default function SmartRevisionSetup({ materials, onBack, onStart }: Smart
   };
 
   return (
-    <div className="w-full max-w-md mx-auto p-4 space-y-6">
+    <motion.div whileHover={{ y: -2, scale: 1.002 }} transition={{ duration: 0.25 }} className="w-full max-w-md mx-auto p-4 space-y-6">
       <button onClick={onBack} className="flex items-center gap-1 text-slate-500 font-bold text-xs hover:text-slate-800">
         <ArrowLeft className="h-4 w-4" /> Back to Home
       </button>
@@ -42,41 +42,52 @@ export default function SmartRevisionSetup({ materials, onBack, onStart }: Smart
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Select Material</label>
-            <select 
-              value={selectedMaterialId}
-              onChange={(e) => setSelectedMaterialId(e.target.value)}
-              className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
-            >
+          <motion.div whileHover={{ y: -1, scale: 1.002 }} transition={{ duration: 0.25 }} className="relative overflow-hidden space-y-2 p-4 rounded-2xl border border-sky-200/80 bg-gradient-to-br from-white via-sky-100/55 to-cyan-100/40 shadow-[0_8px_24px_rgba(14,165,233,0.12)]">
+            <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-cyan-200/30 blur-2xl pointer-events-none" />
+            <label className="relative text-[10px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <BookOpen className="h-4 w-4 text-sky-500" />
+              Select Study Material
+            </label>
+            <select value={selectedMaterialId} onChange={(e) => setSelectedMaterialId(e.target.value)} className="relative w-full p-3 bg-gradient-to-r from-sky-50 via-white to-cyan-50 border border-sky-100 hover:border-sky-300 rounded-xl text-xs font-bold text-slate-800 shadow-[0_4px_12px_rgba(14,165,233,0.07)] focus:outline-none focus:border-sky-400">
               {materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
-          </div>
+          </motion.div>
 
-          <div className="space-y-2">
-            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Revision Length</label>
+          <motion.div whileHover={{ y: -1, scale: 1.002 }} transition={{ duration: 0.25 }} className="relative overflow-hidden space-y-2 p-4 rounded-2xl border border-sky-200/80 bg-gradient-to-br from-white via-sky-100/55 to-cyan-100/40 shadow-[0_8px_24px_rgba(14,165,233,0.12)]">
+            <div className="absolute -left-8 -bottom-8 h-20 w-20 rounded-full bg-sky-200/30 blur-2xl pointer-events-none" />
+            <label className="relative text-[10px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <Clock className="h-4 w-4 text-sky-500" />
+              Revision Length
+            </label>
             <div className="grid grid-cols-3 gap-2">
               {[ { label: 'Quick', val: 5 }, { label: 'Standard', val: 10 }, { label: 'Deep', val: 15 } ].map(d => (
                 <button
                   key={d.val}
                   onClick={() => setDuration(d.val)}
-                  className={`p-2 rounded-xl text-xs font-bold border ${duration === d.val ? 'bg-sky-50 text-sky-600 border-sky-200' : 'bg-white border-slate-200 text-slate-600'}`}
+                  className={`p-2.5 rounded-xl text-xs font-bold border transition-all shadow-[0_4px_12px_rgba(14,165,233,0.08)] ${duration === d.val ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 text-white border-sky-400 shadow-[0_7px_16px_rgba(14,165,233,0.20)]' : 'bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-sky-100 text-slate-700 hover:border-sky-300 hover:shadow-[0_6px_14px_rgba(14,165,233,0.14)]'}`}
                 >
                   {d.label} ({d.val}m)
                 </button>
               ))}
             </div>
-          </div>
+          </motion.div>
 
-          <button 
+          <motion.button
             onClick={handleStart}
-            disabled={!selectedMaterialId}
-            className="w-full py-3 bg-slate-900 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2"
+            disabled={!selectedMaterialId || isProcessing}
+            whileHover={selectedMaterialId && !isProcessing ? { y: -2, scale: 1.015 } : undefined}
+            whileTap={selectedMaterialId && !isProcessing ? { scale: 0.985 } : undefined}
+            transition={{ type: "spring", stiffness: 300, damping: 18 }}
+            className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 hover:from-sky-600 hover:via-blue-700 hover:to-cyan-600 disabled:bg-slate-200 disabled:from-slate-200 disabled:via-slate-200 disabled:to-slate-200 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-[0_8px_18px_rgba(14,165,233,0.26)] border border-sky-400/60 flex items-center justify-center gap-2 group"
           >
-            Start Revision <Sparkles className="h-4 w-4" />
-          </button>
+            <Sparkles className="h-4 w-4 drop-shadow-[0_2px_3px_rgba(255,255,255,0.25)]" />
+            <span>{isProcessing ? 'Starting Revision...' : 'Start Smart Revision'}</span>
+            <motion.span whileHover={{ x: 4 }} transition={{ type: "spring", stiffness: 420, damping: 18 }}>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </motion.span>
+          </motion.button>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

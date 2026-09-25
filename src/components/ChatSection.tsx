@@ -257,7 +257,7 @@ export default function ChatSection({
     <div id="chat-section-container" className="flex flex-col flex-1 h-full relative bg-slate-50/20 text-left">
       
       {/* Top status bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-100 text-[10px] text-slate-500 sticky top-0 z-10 shadow-[0_1px_2px_rgba(14,165,233,0.01)] font-sans">
+      <div className="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-white via-sky-50/60 to-cyan-50/50 border-b border-sky-100/70 text-[10px] text-slate-500 sticky top-0 z-10 shadow-[0_2px_8px_rgba(14,165,233,0.06)] font-sans">
         <div className="flex items-center gap-1.5 font-bold">
           <span className={`w-2 h-2 rounded-full ${materials.length > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></span>
           <span>
@@ -266,9 +266,9 @@ export default function ChatSection({
               : "No study materials connected"}
           </span>
         </div>
-        <span className="text-[9px] uppercase font-extrabold text-sky-600 tracking-wider flex items-center gap-1">
+        <span className="text-[9px] uppercase font-extrabold text-sky-700 tracking-wider flex items-center gap-1 px-2.5 py-1 rounded-full bg-sky-100/70 border border-sky-200/60 shadow-sm">
           <Sparkles className="h-3 w-3" />
-          <span>Factual Study Workspace</span>
+          <span>Study Workspace</span>
         </span>
       </div>
 
@@ -297,7 +297,7 @@ export default function ChatSection({
                 <button
                   key={i}
                   onClick={() => handleSuggestionClick(sug)}
-                  className="p-3 bg-white hover:bg-sky-50 border border-slate-100 hover:border-sky-200 rounded-xl text-left text-xs font-bold text-slate-700 transition-all cursor-pointer flex justify-between items-center group shadow-sm"
+                  className="p-3 bg-gradient-to-r from-sky-50 via-white to-cyan-50 hover:from-sky-100 hover:to-cyan-50 border border-sky-100 hover:border-sky-300 rounded-xl text-left text-xs font-bold text-slate-700 transition-all cursor-pointer flex justify-between items-center group shadow-[0_4px_12px_rgba(14,165,233,0.08)]"
                 >
                   <span className="truncate pr-2">{sug}</span>
                   <ArrowRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-sky-500 shrink-0 transition-colors" />

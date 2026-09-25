@@ -197,7 +197,7 @@ export default function HomeSection({
 
         <motion.div
           whileHover={{ y: -2, scale: 1.005 }}
-          className="relative overflow-hidden bg-gradient-to-br from-sky-500 via-blue-600 to-cyan-500 border border-sky-300/60 p-4.5 rounded-2xl space-y-4 shadow-[0_0_28px_rgba(14,165,233,0.28)]"
+          className="relative overflow-hidden bg-gradient-to-br from-sky-400 via-blue-600 to-cyan-500 border border-cyan-300/70 p-4.5 rounded-2xl space-y-4 shadow-[0_0_30px_rgba(14,165,233,0.30)]"
         >
           <div className="absolute -right-8 -top-8 w-24 h-24 rounded-full bg-cyan-300/25 blur-2xl animate-pulse" />
           <div className="absolute -left-10 -bottom-10 w-28 h-28 rounded-full bg-blue-300/20 blur-3xl" />
@@ -243,7 +243,7 @@ export default function HomeSection({
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => onNavigate('ask')}
-            className="p-3.5 bg-gradient-to-br from-sky-500 to-blue-600 border border-sky-300/60 hover:from-sky-400 hover:to-blue-500 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-[0_0_22px_rgba(14,165,233,0.22)] text-white"
+            className="p-3.5 bg-gradient-to-br from-sky-400 via-blue-600 to-indigo-600 border border-sky-300/70 hover:from-sky-300 hover:via-blue-500 hover:to-indigo-500 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-[0_0_24px_rgba(14,165,233,0.28)] text-white"
           >
             <div className="p-2 bg-white/15 text-white border border-white/20 backdrop-blur-sm shadow-[0_0_14px_rgba(255,255,255,0.16)] rounded-xl">
               <MessageSquare className="h-4.5 w-4.5" />
@@ -258,7 +258,7 @@ export default function HomeSection({
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.97 }}
             onClick={onOpenQuickUpload}
-            className="p-3.5 bg-gradient-to-br from-cyan-500 to-sky-600 border border-cyan-300/60 hover:from-cyan-400 hover:to-sky-500 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-[0_0_22px_rgba(6,182,212,0.22)] text-white"
+            className="p-3.5 bg-gradient-to-br from-cyan-400 via-sky-500 to-blue-600 border border-cyan-300/70 hover:from-cyan-300 hover:via-sky-400 hover:to-blue-500 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-[0_0_24px_rgba(6,182,212,0.28)] text-white"
           >
             <div className="p-2 bg-white/15 text-white border border-white/20 backdrop-blur-sm shadow-[0_0_14px_rgba(255,255,255,0.16)] rounded-xl">
               <Upload className="h-4.5 w-4.5" />
@@ -273,7 +273,7 @@ export default function HomeSection({
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.97 }}
             onClick={onOpenQuickNote}
-            className="p-3.5 bg-gradient-to-br from-blue-600 to-indigo-600 border border-blue-300/60 hover:from-blue-500 hover:to-indigo-500 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-[0_0_22px_rgba(37,99,235,0.22)] text-white"
+            className="p-3.5 bg-gradient-to-br from-blue-500 via-indigo-600 to-sky-600 border border-blue-300/70 hover:from-blue-400 hover:via-indigo-500 hover:to-sky-500 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-[0_0_24px_rgba(37,99,235,0.28)] text-white"
           >
             <div className="p-2 bg-white/15 text-white border border-white/20 backdrop-blur-sm shadow-[0_0_14px_rgba(255,255,255,0.16)] rounded-xl">
               <FileEdit className="h-4.5 w-4.5" />
@@ -288,7 +288,7 @@ export default function HomeSection({
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => onNavigate('viva')}
-            className="p-3.5 bg-gradient-to-br from-sky-600 to-cyan-500 border border-sky-300/60 hover:from-sky-500 hover:to-cyan-400 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-[0_0_22px_rgba(14,165,233,0.22)] text-white"
+            className="p-3.5 bg-gradient-to-br from-blue-600 via-sky-500 to-cyan-400 border border-sky-300/70 hover:from-blue-500 hover:via-sky-400 hover:to-cyan-300 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between items-start gap-4 shadow-[0_0_22px_rgba(14,165,233,0.22)] text-white"
           >
             <div className="p-2 bg-white/15 text-white border border-white/20 backdrop-blur-sm shadow-[0_0_14px_rgba(255,255,255,0.16)] rounded-xl">
               <Mic className="h-4.5 w-4.5" />

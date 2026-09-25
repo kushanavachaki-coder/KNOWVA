@@ -223,11 +223,11 @@ export default function StudyMaterialSection({
   };
 
   return (
-    <div id="study-material-section" className="w-full bg-white border border-slate-100 rounded-2xl p-4 shadow-sm text-left">
+    <motion.div id="study-material-section" whileHover={{ y: -1 }} transition={{ duration: 0.2 }} className="w-full bg-gradient-to-br from-white via-sky-50/40 to-cyan-50/30 border border-sky-100/80 rounded-2xl p-4 shadow-[0_6px_20px_rgba(14,165,233,0.08)] text-left relative overflow-hidden">
       
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-0.5">
-          <h2 className="text-[10px] font-extrabold uppercase tracking-widest text-sky-600 flex items-center gap-1.5">
+          <h2 className="text-[10px] font-extrabold uppercase tracking-widest text-sky-700 flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 bg-sky-500 rounded-full animate-ping"></span>
             ACTIVE STUDY MATERIALS
           </h2>
@@ -237,14 +237,14 @@ export default function StudyMaterialSection({
         </div>
 
         {/* Action button toggles */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0 bg-white/70 p-1 rounded-xl border border-sky-100/70 shadow-sm">
           <motion.button
             whileTap={{ scale: 0.96 }}
             onClick={() => { setActiveMode(activeMode === 'pdf' ? 'none' : 'pdf'); setErrorMessage(''); }}
             className={`px-3 py-1.5 text-[9px] font-bold tracking-wider uppercase rounded-xl transition-all duration-200 cursor-pointer border flex items-center gap-1 ${
               activeMode === 'pdf'
-                ? 'bg-sky-500 text-white border-sky-500 shadow-md shadow-sky-500/10'
-                : 'bg-slate-50 text-slate-600 border-slate-200/60 hover:bg-slate-100'
+                ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white border-sky-500 shadow-md shadow-sky-500/20'
+                : 'bg-white/80 text-slate-600 border-sky-100/70 hover:bg-sky-50 hover:text-sky-700'
             }`}
           >
             <FileUp className="h-3 w-3" />
@@ -364,7 +364,7 @@ export default function StudyMaterialSection({
       {/* List Active Documents */}
       {materials.length > 0 && (
         <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
-          <span className="text-[9px] text-slate-400 uppercase tracking-widest block font-bold">
+          <span className="text-[9px] text-sky-600/80 uppercase tracking-widest block font-bold">
             Active Study Scope ({materials.length})
           </span>
           <div className="flex flex-wrap gap-1.5">
@@ -372,7 +372,7 @@ export default function StudyMaterialSection({
               <motion.div 
                 whileHover={{ scale: 1.01 }}
                 key={m.id} 
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200/60 rounded-xl text-[11px] text-slate-700 max-w-[200px] min-w-0"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/85 border border-sky-100 rounded-xl text-[11px] text-slate-700 max-w-[200px] min-w-0 shadow-[0_2px_8px_rgba(14,165,233,0.06)]"
               >
                 <FileText className={`h-3.5 w-3.5 shrink-0 ${m.type === 'pdf' ? 'text-red-500' : 'text-amber-500'}`} />
                 <span className="truncate min-w-0 font-semibold text-slate-700">{m.name}</span>
@@ -396,6 +396,6 @@ export default function StudyMaterialSection({
         </div>
       )}
 
-    </div>
+    </motion.div>
   );
 }

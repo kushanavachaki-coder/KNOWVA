@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { 
   Home,
@@ -25,6 +25,16 @@ interface HeaderProps {
 }
 
 export default function Header({ activeTab, onTabChange, materialsCount }: HeaderProps) {
+  const [isMobilePerformanceMode, setIsMobilePerformanceMode] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 640px)');
+    const update = () => setIsMobilePerformanceMode(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
   
   // The primary areas including Revision
   const navItems = [
@@ -56,13 +66,13 @@ export default function Header({ activeTab, onTabChange, materialsCount }: Heade
             className="relative h-9 w-9 bg-gradient-to-br from-sky-500 via-blue-600 to-cyan-500 text-white rounded-xl flex items-center justify-center shadow-[0_7px_18px_rgba(14,165,233,0.30)] border border-sky-300/70 overflow-hidden"
           >
             <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+              animate={isMobilePerformanceMode ? { rotate: 0 } : { rotate: 360 }}
+              transition={isMobilePerformanceMode ? { duration: 0.2 } : { duration: 8, repeat: Infinity, ease: "linear" }}
               className="absolute -inset-3 rounded-full border border-cyan-200/20"
             />
             <motion.div
-              animate={{ x: [0, 2, 0], y: [0, -1, 0] }}
-              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+              animate={isMobilePerformanceMode ? { x: 0, y: 0 } : { x: [0, 2, 0], y: [0, -1, 0] }}
+              transition={isMobilePerformanceMode ? { duration: 0.2 } : { duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
               className="absolute -right-2 -top-2 h-7 w-7 rounded-full bg-cyan-200/30 blur-md"
             />
             <Sparkles className="relative h-4 w-4 drop-shadow-[0_3px_3px_rgba(255,255,255,0.35)]" />
@@ -78,8 +88,8 @@ export default function Header({ activeTab, onTabChange, materialsCount }: Heade
                 KNOWVA
               </span>
               <motion.span
-                animate={{ scale: [1, 1.25, 1], opacity: [0.7, 1, 0.7] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                animate={isMobilePerformanceMode ? { scale: 1, opacity: 0.85 } : { scale: [1, 1.25, 1], opacity: [0.7, 1, 0.7] }}
+                transition={isMobilePerformanceMode ? { duration: 0.2 } : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
                 className="w-1.5 h-1.5 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.75)]"
               />
             </motion.div>
@@ -147,8 +157,8 @@ export default function Header({ activeTab, onTabChange, materialsCount }: Heade
                 key={item.id}
                 id={`mobile-nav-tab-${item.id}`}
                 onClick={() => onTabChange(item.id)}
-                whileHover={{ y: -2, scale: 1.04 }}
-                whileTap={{ scale: 0.94 }}
+                whileHover={isMobilePerformanceMode ? undefined : { y: -2, scale: 1.04 }}
+                whileTap={isMobilePerformanceMode ? { scale: 0.98 } : { scale: 0.94 }}
                 transition={{ type: "spring", stiffness: 420, damping: 20 }}
                 className="relative flex flex-col items-center justify-center w-14 h-12 gap-0.5 text-center cursor-pointer focus:outline-none"
                 style={{ minWidth: '44px', minHeight: '44px' }}
@@ -156,22 +166,22 @@ export default function Header({ activeTab, onTabChange, materialsCount }: Heade
                 {isActive && (
                   <motion.div
                     layoutId="activeTabIndicatorMobile"
-                    initial={{ opacity: 0, scale: 0.82, rotateX: -8 }}
+                    initial={isMobilePerformanceMode ? { opacity: 0.95, scale: 1 } : { opacity: 0, scale: 0.82, rotateX: -8 }}
                     animate={{ opacity: 1, scale: 1, rotateX: 0 }}
-                    transition={{ type: "spring", stiffness: 380, damping: 24 }}
+                    transition={isMobilePerformanceMode ? { duration: 0.18 } : { type: "spring", stiffness: 380, damping: 24 }}
                     className="absolute w-12 h-11 rounded-xl bg-gradient-to-br from-sky-500 via-blue-600 to-cyan-500 border border-sky-300/80 shadow-[0_7px_18px_rgba(14,165,233,0.28)] -z-10"
                     style={{ transformPerspective: 700 }}
                   >
                     <motion.div
-                      animate={{ x: [0, 2, 0], y: [0, -1, 0] }}
-                      transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                      animate={isMobilePerformanceMode ? { x: 0, y: 0 } : { x: [0, 2, 0], y: [0, -1, 0] }}
+                      transition={isMobilePerformanceMode ? { duration: 0.2 } : { duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
                       className="absolute -right-2 -top-2 h-8 w-8 rounded-full bg-cyan-200/25 blur-lg pointer-events-none"
                     />
                   </motion.div>
                 )}
                 <motion.div
-                  animate={isActive ? { y: [0, -1.5, 0], rotateX: [0, -4, 0] } : { y: 0, rotateX: 0 }}
-                  transition={isActive ? { duration: 2.2, repeat: Infinity, ease: "easeInOut" } : { duration: 0.2 }}
+                  animate={isMobilePerformanceMode ? { y: 0, rotateX: 0 } : (isActive ? { y: [0, -1.5, 0], rotateX: [0, -4, 0] } : { y: 0, rotateX: 0 })}
+                  transition={isMobilePerformanceMode ? { duration: 0.18 } : (isActive ? { duration: 2.2, repeat: Infinity, ease: "easeInOut" } : { duration: 0.2 })}
                   style={{ transformPerspective: 700 }}
                   className={`relative z-10 transition-colors duration-200 ${
                     isActive ? 'text-white drop-shadow-[0_2px_3px_rgba(255,255,255,0.30)]' : 'text-slate-400 group-hover:text-sky-500'

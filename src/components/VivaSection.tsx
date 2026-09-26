@@ -496,10 +496,8 @@ export default function VivaSection({
             evalResult.ttsAudioBase64,
             evalResult.ttsMimeType || 'audio/wav'
           );
-          if (feedbackFinished && currentQuestionNum < 5) {
-            handleNextQuestion();
-          } else if (feedbackFinished && currentQuestionNum >= 5) {
-            completeSession();
+          if (feedbackFinished) {
+            handleNextQuestion(evalResult, updatedHistory);
           }
         }
       } catch (err: any) {
@@ -514,31 +512,38 @@ export default function VivaSection({
   };
 
   // Move to next question or complete session
-  const handleNextQuestion = () => {
+  const handleNextQuestion = (
+    evaluationOverride?: EvaluationData,
+    historyOverride?: HistoryEntry[]
+  ) => {
     if (!selectedMaterial || isSpeaking) return;
 
+    const effectiveHistory = historyOverride || sessionHistory;
+    const effectiveEvaluation = evaluationOverride || currentEvaluation;
+
     if (currentQuestionNum >= 5) {
-      completeSession();
+      completeSession(effectiveHistory);
     } else {
       const nextNum = currentQuestionNum + 1;
       setCurrentQuestionNum(nextNum);
-      const nextDiff = currentEvaluation?.recommendedDifficulty as any || currentDifficulty;
-      fetchQuestion(sessionId, nextNum, selectedMaterial, sessionHistory, nextDiff);
+      const nextDiff = effectiveEvaluation?.recommendedDifficulty as any || currentDifficulty;
+      fetchQuestion(sessionId, nextNum, selectedMaterial, effectiveHistory, nextDiff);
     }
   };
 
   // Complete session and save summary to Firestore
-  const completeSession = async () => {
+  const completeSession = async (historyOverride?: HistoryEntry[]) => {
     if (!selectedMaterial) return;
 
-    const totalScoreSum = sessionHistory.reduce((acc, h) => acc + h.evaluation.score, 0);
-    const finalScore = sessionHistory.length > 0 ? Math.round(totalScoreSum / sessionHistory.length) : 0;
+    const effectiveHistory = historyOverride || sessionHistory;
+    const totalScoreSum = effectiveHistory.reduce((acc, h) => acc + h.evaluation.score, 0);
+    const finalScore = effectiveHistory.length > 0 ? Math.round(totalScoreSum / effectiveHistory.length) : 0;
 
     const strongAreasSet = new Set<string>();
     const weakAreasSet = new Set<string>();
     const topicsSet = new Set<string>();
 
-    sessionHistory.forEach(h => {
+    effectiveHistory.forEach(h => {
       if (h.evaluation.topic) topicsSet.add(h.evaluation.topic);
       if (h.evaluation.score >= 75) {
         if (h.evaluation.topic) strongAreasSet.add(h.evaluation.topic);

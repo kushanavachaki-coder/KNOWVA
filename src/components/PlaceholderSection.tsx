@@ -488,10 +488,11 @@ export default function PlaceholderSection({
               <Star className={`h-3 w-3 ${showOnlyFavorites ? 'fill-amber-500 text-amber-500' : 'text-slate-400'}`} />
               <span>{showOnlyFavorites ? 'Starred Cards' : 'Filter Starred'}</span>
             </button>
-          </motion.div>
+          </div>
+        </motion.div>
         </div>
 
-        {/* Multi-Column List layout */}
+        {/* Multi-Column List layout */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
           
           {/* Group 1: Source Materials */}
@@ -540,11 +541,10 @@ export default function PlaceholderSection({
                 ))}
               </div>
             )}
-          </div>
 
           </motion.div>
 
-          {/* Group 2: Saved Study Notes */}
+          {/* Group 2: Saved Study Notes */
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}

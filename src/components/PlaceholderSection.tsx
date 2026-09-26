@@ -490,9 +490,8 @@ export default function PlaceholderSection({
             </button>
           </div>
         </motion.div>
-        </div>
 
-        {/* Multi-Column List layout */
+        {/* Multi-Column List layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
           
           {/* Group 1: Source Materials */}

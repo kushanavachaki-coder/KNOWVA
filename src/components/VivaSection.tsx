@@ -105,6 +105,7 @@ export default function VivaSection({
   const [inputMethodUsed, setInputMethodUsed] = useState<'text' | 'voice'>('text');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [finalAssessment, setFinalAssessment] = useState<string>('');
+  const [kokoroTestStatus, setKokoroTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   const recognitionRef = useRef<any>(null);
 
@@ -146,6 +147,23 @@ export default function VivaSection({
         resolve(false);
       }
     });
+  };
+
+  const handleKokoroTest = async () => {
+    if (kokoroTestStatus === 'loading') return;
+
+    setKokoroTestStatus('loading');
+    try {
+      const { speakWithKokoro } = await import('../utils/kokoroTts');
+      const played = await speakWithKokoro(
+        'Hello. This is Knowva testing its local Kokoro teacher voice.',
+        'af_heart'
+      );
+      setKokoroTestStatus(played ? 'success' : 'error');
+    } catch (error) {
+      console.error('[KOKORO TEST] Voice generation failed:', error);
+      setKokoroTestStatus('error');
+    }
   };
 
   const speakText = async (
@@ -447,7 +465,6 @@ export default function VivaSection({
         }, 60000);
 
         const data = await response.json();
-
         if (!response.ok || !data.success) {
           throw new Error(data.message || 'Failed to evaluate answer against study material.');
         }
@@ -790,6 +807,36 @@ export default function VivaSection({
           </div>
         </motion.div>
 
+        {/* Kokoro voice experiment */}
+        <div className="pt-1 space-y-1.5">
+          <motion.button
+            onClick={handleKokoroTest}
+            disabled={kokoroTestStatus === 'loading'}
+            whileHover={{ y: -1, scale: 1.01 }}
+            whileTap={{ scale: 0.985 }}
+            transition={{ type: "spring", stiffness: 320, damping: 20 }}
+            className="w-full py-2.5 bg-white hover:bg-sky-50 disabled:bg-slate-50 text-sky-700 disabled:text-slate-400 font-bold text-xs rounded-xl transition-colors cursor-pointer border border-sky-200 shadow-[0_4px_12px_rgba(14,165,233,0.08)] flex items-center justify-center gap-2"
+          >
+            {kokoroTestStatus === 'loading' ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Volume2 className="h-3.5 w-3.5" />
+            )}
+            <span>
+              {kokoroTestStatus === 'loading'
+                ? 'Loading Kokoro locally...'
+                : kokoroTestStatus === 'success'
+                  ? 'Kokoro Test Played'
+                  : kokoroTestStatus === 'error'
+                    ? 'Kokoro Test Failed — Try Again'
+                    : 'Test Kokoro Teacher Voice'}
+            </span>
+          </motion.button>
+          <p className="text-[9px] text-slate-400 font-semibold text-center">
+            First test may download the model; Gemini Viva voice is unchanged.
+          </p>
+        </div>
+
         {/* Start Button */}
         <div className="text-center pt-2">
           <motion.button
@@ -897,8 +944,7 @@ export default function VivaSection({
             }`} />
             <span className="truncate">{currentQuestion.difficulty || 'Intermediate'}</span>
             <span className="text-slate-300">•</span>
-            <span className="truncate">{currentQuestion.topic || 'General'}</span>
-          </span>
+            <span className="truncate">{currentQuestion.topic || 'General'}</span>          </span>
         </div>
 
         <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">

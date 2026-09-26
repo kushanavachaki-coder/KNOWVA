@@ -26,9 +26,6 @@ export default function SmartRevisionSetup({ materials, onBack, onStart }: Smart
 
   return (
     <motion.div whileHover={{ y: -2, scale: 1.002 }} transition={{ duration: 0.25 }} className="w-full max-w-md mx-auto p-4 space-y-6">
-      <button onClick={onBack} className="flex items-center gap-1 text-slate-500 font-bold text-xs hover:text-slate-800">
-        <ArrowLeft className="h-4 w-4" /> Back to Home
-      </button>
 
       <div className="text-center space-y-2">
         <motion.div

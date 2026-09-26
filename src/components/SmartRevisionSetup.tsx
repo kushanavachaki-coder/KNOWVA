@@ -73,13 +73,23 @@ export default function SmartRevisionSetup({ materials, onBack, onStart }: Smart
             </label>
             <div className="grid grid-cols-3 gap-2">
               {[ { label: 'Quick', val: 5 }, { label: 'Standard', val: 10 }, { label: 'Deep', val: 15 } ].map(d => (
-                <button
+                <motion.button
                   key={d.val}
                   onClick={() => setDuration(d.val)}
-                  className={`p-2.5 rounded-xl text-xs font-bold border transition-all shadow-[0_4px_12px_rgba(14,165,233,0.08)] ${duration === d.val ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 text-white border-sky-400 shadow-[0_7px_16px_rgba(14,165,233,0.20)]' : 'bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-sky-100 text-slate-700 hover:border-sky-300 hover:shadow-[0_6px_14px_rgba(14,165,233,0.14)]'}`}
+                  whileHover={{ y: -1, scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 320, damping: 20 }}
+                  className={`relative overflow-hidden p-2.5 rounded-xl text-xs font-bold border transition-colors shadow-[0_4px_12px_rgba(14,165,233,0.08)] ${duration === d.val ? 'border-sky-400 text-white shadow-[0_7px_16px_rgba(14,165,233,0.20)]' : 'bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-sky-100 text-slate-700 hover:border-sky-300 hover:shadow-[0_6px_14px_rgba(14,165,233,0.14)]'}`}
                 >
-                  {d.label} ({d.val}m)
-                </button>
+                  {duration === d.val && (
+                    <motion.span
+                      layoutId="revisionDurationActive"
+                      className="absolute inset-0 bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative z-10">{d.label} ({d.val}m)</span>
+                </motion.button>
               ))}
             </div>
           </motion.div>

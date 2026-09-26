@@ -488,7 +488,7 @@ export default function PlaceholderSection({
               <Star className={`h-3 w-3 ${showOnlyFavorites ? 'fill-amber-500 text-amber-500' : 'text-slate-400'}`} />
               <span>{showOnlyFavorites ? 'Starred Cards' : 'Filter Starred'}</span>
             </button>
-          </div>
+          </motion.div>
         </div>
 
         {/* Multi-Column List layout */}

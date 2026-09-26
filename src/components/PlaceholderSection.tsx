@@ -440,9 +440,17 @@ export default function PlaceholderSection({
         
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center p-3 bg-sky-50 text-sky-600 rounded-2xl border border-sky-100 shadow-sm mb-1">
-            <FileText className="h-6 w-6 text-sky-600" />
-          </div>
+          <motion.div
+            initial={{ rotateX: -12, rotateY: 10, y: 4, scale: 0.94, opacity: 0 }}
+            animate={{ rotateX: 0, rotateY: 0, y: 0, scale: 1, opacity: 1 }}
+            whileHover={{ rotateX: -8, rotateY: 10, y: -3, scale: 1.06 }}
+            transition={{ type: "spring", stiffness: 260, damping: 16 }}
+            style={{ transformPerspective: 700 }}
+            className="inline-flex p-3 bg-gradient-to-br from-sky-100 via-white to-cyan-100 text-sky-600 rounded-2xl border border-sky-200 shadow-[0_8px_18px_rgba(14,165,233,0.16)] mb-1 relative overflow-hidden"
+          >
+            <div className="absolute -right-3 -top-3 w-8 h-8 rounded-full bg-cyan-200/35 blur-md pointer-events-none" />
+            <FileText className="h-5.5 w-5.5 relative drop-shadow-[0_3px_3px_rgba(14,165,233,0.22)]" />
+          </motion.div>
           <h1 className="text-lg font-bold text-slate-800 tracking-tight">Active Study Library</h1>
           <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed font-semibold">
             Catalog and view uploaded syllabus materials alongside customized study notes compiled during your interactive chats.
@@ -450,15 +458,21 @@ export default function PlaceholderSection({
         </div>
 
         {/* Filter Controls */}
-        <div className="bg-white border border-slate-150 shadow-sm rounded-2xl p-3 flex flex-col gap-2.5">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28 }}
+          whileHover={{ y: -3 }}
+          className="bg-gradient-to-br from-sky-50 via-white to-cyan-50 hover:from-sky-100 hover:to-cyan-50 border border-sky-100 hover:border-sky-300 shadow-[0_8px_20px_rgba(14,165,233,0.09)] rounded-2xl p-3 flex flex-col gap-2.5 transition-colors"
+        >
           <div className="relative w-full">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-sky-500 drop-shadow-[0_2px_2px_rgba(14,165,233,0.16)]" />
             <input 
               type="text"
               placeholder="Search library notes and materials..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-sky-500 focus:bg-white transition-all font-semibold"
+              className="w-full bg-white/80 border border-sky-100 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-sky-400 focus:bg-white transition-all font-semibold shadow-sm"
             />
           </div>
 
@@ -468,7 +482,7 @@ export default function PlaceholderSection({
               className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 ${
                 showOnlyFavorites 
                   ? 'bg-amber-50 border-amber-200 text-amber-700 shadow-sm shadow-amber-500/10' 
-                  : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800'
+                  : 'bg-white/80 border-sky-100 text-slate-500 hover:text-sky-700 hover:border-sky-300'
               }`}
             >
               <Star className={`h-3 w-3 ${showOnlyFavorites ? 'fill-amber-500 text-amber-500' : 'text-slate-400'}`} />
@@ -481,9 +495,15 @@ export default function PlaceholderSection({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
           
           {/* Group 1: Source Materials */}
-          <div className="space-y-2.5">
-            <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 flex items-center gap-1.5 pl-1">
-              <span className="w-1.5 h-1.5 bg-sky-500 rounded-full"></span>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28, delay: 0.06 }}
+            whileHover={{ y: -2 }}
+            className="space-y-2.5 p-4 bg-gradient-to-br from-sky-50 via-white to-cyan-50 border border-sky-100 hover:border-sky-300 rounded-2xl shadow-[0_6px_16px_rgba(14,165,233,0.07)] transition-colors"
+          >
+            <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-sky-700 flex items-center gap-1.5 pl-1">
+              <span className="w-1.5 h-1.5 bg-sky-500 rounded-full shadow-[0_0_7px_rgba(14,165,233,0.45)]"></span>
               Syllabus Materials ({filteredMaterials.length})
             </h3>
 
@@ -505,7 +525,7 @@ export default function PlaceholderSection({
                   <motion.div 
                     whileHover={{ y: -1 }}
                     key={mat.id} 
-                    className="p-3 bg-white border border-slate-100 rounded-2xl flex items-center justify-between shadow-sm"
+                    className="p-3 bg-white/80 border border-sky-100 hover:border-sky-300 rounded-2xl flex items-center justify-between shadow-sm shadow-sky-500/5 transition-colors"
                   >
                     <div className="min-w-0 pr-2">
                       <h4 className="text-xs font-bold text-slate-800 truncate">{mat.name}</h4>
@@ -522,10 +542,18 @@ export default function PlaceholderSection({
             )}
           </div>
 
+          </motion.div>
+
           {/* Group 2: Saved Study Notes */}
-          <div className="space-y-2.5">
-            <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 flex items-center gap-1.5 pl-1">
-              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28, delay: 0.1 }}
+            whileHover={{ y: -2 }}
+            className="space-y-2.5 p-4 bg-gradient-to-br from-sky-50 via-white to-cyan-50 border border-sky-100 hover:border-sky-300 rounded-2xl shadow-[0_6px_16px_rgba(14,165,233,0.07)] transition-colors"
+          >
+            <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-sky-700 flex items-center gap-1.5 pl-1">
+              <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full shadow-[0_0_7px_rgba(6,182,212,0.55)]"></span>
               Compiled Study Cards ({filteredNotes.length})
             </h3>
 
@@ -543,7 +571,7 @@ export default function PlaceholderSection({
                   <motion.div 
                     whileHover={{ y: -1 }}
                     key={note.id} 
-                    className="p-3 bg-white border border-slate-100 rounded-2xl flex items-center justify-between group shadow-sm"
+                    className="p-3 bg-white/80 border border-sky-100 hover:border-sky-300 rounded-2xl flex items-center justify-between group shadow-sm shadow-sky-500/5 transition-colors"
                   >
                     <div className="min-w-0 pr-2 flex-1">
                       <div className="flex items-center gap-1.5">
@@ -593,7 +621,7 @@ export default function PlaceholderSection({
                 ))}
               </div>
             )}
-          </div>
+          </motion.div>
 
         </div>
 
@@ -605,11 +633,11 @@ export default function PlaceholderSection({
                 initial={{ opacity: 0, scale: 0.97, y: 15 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.97, y: 15 }}
-                className="bg-white border border-slate-100 rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden shadow-2xl"
+                className="bg-gradient-to-br from-white via-sky-50/40 to-cyan-50/50 border border-sky-100 rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden shadow-[0_18px_45px_rgba(14,165,233,0.14)]"
               >
                 
                 {/* Modal Header */}
-                <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-left">
+                <div className="p-4 bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-b border-sky-100 flex items-center justify-between text-left">
                   <div className="min-w-0 pr-4">
                     <span className="text-[9px] font-extrabold uppercase tracking-wider text-sky-600">STUDY NOTE COMPILATION</span>
                     <h2 className="text-sm font-bold text-slate-800 mt-0.5 truncate">{selectedNote.title}</h2>
@@ -707,7 +735,7 @@ export default function PlaceholderSection({
                 </div>
 
                 {/* Modal Footer */}
-                <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                <div className="p-4 bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-t border-sky-100 flex justify-between items-center">
                   <span className="text-[10px] text-slate-400 font-bold">
                     Compiled {new Date(selectedNote.createdAt).toLocaleDateString()}
                   </span>

@@ -272,14 +272,6 @@ export default function ChatSection({
               : "No study materials connected"}
           </span>
         </div>
-        <motion.span
-          whileHover={{ y: -1, scale: 1.03 }}
-          transition={{ duration: 0.2 }}
-          className="relative text-[9px] uppercase font-extrabold text-sky-700 tracking-wider flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/85 border border-sky-200 shadow-[0_4px_12px_rgba(14,165,233,0.14)]"
-        >
-          <Sparkles className="h-3 w-3" />
-          <span>Study Workspace</span>
-        </motion.span>
       </motion.div>
 
       {/* Messages View Area */}

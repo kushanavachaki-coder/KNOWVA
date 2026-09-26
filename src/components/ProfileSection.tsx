@@ -393,7 +393,7 @@ export default function ProfileSection({
         <div className="space-y-4">
           
           {/* PROFILE CARD */}
-          <div className="bg-white border border-slate-100 rounded-2xl p-4 flex items-center gap-3.5 shadow-sm relative">
+          <motion.div whileHover={{ y: -2, scale: 1.01 }} transition={{ type: "spring", stiffness: 280, damping: 20 }} className="bg-gradient-to-r from-sky-50 via-white to-cyan-50 hover:from-sky-100 hover:to-cyan-50 border border-sky-100 hover:border-sky-300 rounded-xl p-4 flex items-center gap-3.5 shadow-[0_4px_12px_rgba(14,165,233,0.08)] relative transition-all">
             <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-sky-400 to-blue-600 text-white flex items-center justify-center text-lg font-black shrink-0">
               {user.name ? user.name[0].toUpperCase() : 'S'}
             </div>
@@ -422,7 +422,7 @@ export default function ProfileSection({
 
           {/* QUICK ACCOUNT STATE COUNTS */}
           <div className="grid grid-cols-2 gap-2.5">
-            <div className="bg-white border border-slate-100 p-3 rounded-2xl flex items-center gap-2.5 shadow-sm">
+            <motion.div whileHover={{ y: -2, scale: 1.01 }} transition={{ type: "spring", stiffness: 280, damping: 20 }} className="bg-gradient-to-r from-sky-50 via-white to-cyan-50 hover:from-sky-100 hover:to-cyan-50 border border-sky-100 hover:border-sky-300 p-3 rounded-xl flex items-center gap-2.5 shadow-[0_4px_12px_rgba(14,165,233,0.08)] transition-all">
               <div className="p-2 bg-sky-50 text-sky-600 border border-sky-100 rounded-xl">
                 <BookOpen className="h-4 w-4" />
               </div>
@@ -430,9 +430,9 @@ export default function ProfileSection({
                 <span className="text-[10px] text-slate-400 font-bold block leading-none mb-1">DOCUMENTS</span>
                 <span className="text-xs font-bold text-slate-800">{uploadedCount} Active</span>
               </div>
-            </div>
+            </motion.div>
 
-            <div className="bg-white border border-slate-100 p-3 rounded-2xl flex items-center gap-2.5 shadow-sm">
+            <motion.div whileHover={{ y: -2, scale: 1.01 }} transition={{ type: "spring", stiffness: 280, damping: 20 }} className="bg-gradient-to-r from-sky-50 via-white to-cyan-50 hover:from-sky-100 hover:to-cyan-50 border border-sky-100 hover:border-sky-300 p-3 rounded-xl flex items-center gap-2.5 shadow-[0_4px_12px_rgba(14,165,233,0.08)] transition-all">
               <div className="p-2 bg-cyan-50 text-cyan-600 border border-cyan-100 rounded-xl">
                 <ShieldCheck className="h-4 w-4" />
               </div>
@@ -440,7 +440,7 @@ export default function ProfileSection({
                 <span className="text-[10px] text-slate-400 font-bold block leading-none mb-1">STUDY CARDS</span>
                 <span className="text-xs font-bold text-slate-800">{notesCount} Saved</span>
               </div>
-            </div>
+            </motion.div>
           </div>
 
           {/* SETTINGS OPTIONS SYSTEM ROWS (Aesthetic iOS/Android Style List) */}

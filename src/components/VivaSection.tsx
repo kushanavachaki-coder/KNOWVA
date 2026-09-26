@@ -693,7 +693,7 @@ export default function VivaSection({
                     transition={{ type: "spring", stiffness: 320, damping: 20 }}
                     className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 group shadow-[0_5px_14px_rgba(14,165,233,0.10)] ${
                       isSelected
-                        ? 'bg-white/85 border-sky-200 text-slate-700 shadow-[0_2px_8px_rgba(14,165,233,0.06)]'
+                        ? 'bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-sky-300 text-slate-700 shadow-[0_6px_16px_rgba(14,165,233,0.14)] ring-1 ring-sky-100'
                         : 'bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-sky-100 hover:from-sky-100 hover:to-cyan-50 hover:border-sky-300 hover:shadow-[0_8px_18px_rgba(14,165,233,0.16)]'
                     }`}
                   >

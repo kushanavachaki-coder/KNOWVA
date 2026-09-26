@@ -395,7 +395,7 @@ export default function PlaceholderSection({
                   No syllabus materials uploaded yet. Upload a PDF or paste text in the Study Materials tab to view material-level breakdown.
                 </p>
               )}
-            </div>
+            </motion.div>
 
             {/* Viva & Recall Accuracy Note */}
             <div className="p-4 bg-sky-50/50 border border-sky-100 rounded-2xl text-left space-y-1.5 shadow-sm">

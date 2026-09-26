@@ -227,9 +227,17 @@ export default function PlaceholderSection({
         
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center p-3 bg-sky-50 text-sky-600 rounded-2xl border border-sky-100 shadow-sm mb-1">
-            <TrendingUp className="h-6 w-6" />
-          </div>
+          <motion.div
+            initial={{ rotateX: -12, rotateY: 10, y: 4, scale: 0.94, opacity: 0 }}
+            animate={{ rotateX: 0, rotateY: 0, y: 0, scale: 1, opacity: 1 }}
+            whileHover={{ rotateX: -8, rotateY: 10, y: -3, scale: 1.06 }}
+            transition={{ type: "spring", stiffness: 260, damping: 16 }}
+            style={{ transformPerspective: 700 }}
+            className="inline-flex p-3 bg-gradient-to-br from-sky-100 via-white to-cyan-100 text-sky-600 rounded-2xl border border-sky-200 shadow-[0_8px_18px_rgba(14,165,233,0.16)] mb-1 relative overflow-hidden"
+          >
+            <div className="absolute -right-3 -top-3 w-8 h-8 rounded-full bg-cyan-200/35 blur-md pointer-events-none" />
+            <TrendingUp className="h-5.5 w-5.5 relative drop-shadow-[0_3px_3px_rgba(14,165,233,0.22)]" />
+          </motion.div>
           <h1 className="text-lg font-bold text-slate-800 tracking-tight">Factual Progress Analytics</h1>
           <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed font-semibold">
             Track real active study streaks, syllabus grounding coverage, and collected study card assets.
@@ -238,29 +246,41 @@ export default function PlaceholderSection({
 
         {/* Factual Study Stats Grid */}
         <div className="grid grid-cols-2 gap-3">
-          <motion.div whileHover={{ y: -2 }} className="p-4 bg-white border border-slate-100 rounded-2xl text-center shadow-sm">
-            <span className="text-[9px] text-slate-400 block uppercase font-extrabold mb-1 tracking-wider">Study Streak</span>
-            <span className="text-base font-bold text-slate-800">{metrics.studyStreak} {metrics.studyStreak === 1 ? 'Day' : 'Days'}</span>
-            <span className="text-[9px] text-slate-400 block font-semibold mt-0.5">{metrics.activeDaysCount} Active {metrics.activeDaysCount === 1 ? 'Day' : 'Days'} Total</span>
-          </motion.div>
-
-          <motion.div whileHover={{ y: -2 }} className="p-4 bg-white border border-slate-100 rounded-2xl text-center shadow-sm">
-            <span className="text-[9px] text-slate-400 block uppercase font-extrabold mb-1 tracking-wider">Asked Queries</span>
-            <span className="text-base font-bold text-slate-800">{messagesCount}</span>
-            <span className="text-[9px] text-slate-400 block font-semibold mt-0.5">Submitted Q&A</span>
-          </motion.div>
-
-          <motion.div whileHover={{ y: -2 }} className="p-4 bg-white border border-slate-100 rounded-2xl text-center shadow-sm">
-            <span className="text-[9px] text-slate-400 block uppercase font-extrabold mb-1 tracking-wider">Saved Cards</span>
-            <span className="text-base font-bold text-slate-800">{savedStudyNotes.length}</span>
-            <span className="text-[9px] text-slate-400 block font-semibold mt-0.5">Compiled Flashcards</span>
-          </motion.div>
-
-          <motion.div whileHover={{ y: -2 }} className="p-4 bg-white border border-slate-100 rounded-2xl text-center shadow-sm">
-            <span className="text-[9px] text-slate-400 block uppercase font-extrabold mb-1 tracking-wider">Active Uploads</span>
-            <span className="text-base font-bold text-slate-800">{uploadedMaterials.length}</span>
-            <span className="text-[9px] text-slate-400 block font-semibold mt-0.5">Syllabus Sources</span>
-          </motion.div>
+          {[
+            {
+              label: "Study Streak",
+              value: `${metrics.studyStreak} ${metrics.studyStreak === 1 ? 'Day' : 'Days'}`,
+              detail: `${metrics.activeDaysCount} Active ${metrics.activeDaysCount === 1 ? 'Day' : 'Days'} Total`
+            },
+            {
+              label: "Asked Queries",
+              value: String(messagesCount),
+              detail: "Submitted Q&A"
+            },
+            {
+              label: "Saved Cards",
+              value: String(savedStudyNotes.length),
+              detail: "Compiled Flashcards"
+            },
+            {
+              label: "Active Uploads",
+              value: String(uploadedMaterials.length),
+              detail: "Syllabus Sources"
+            }
+          ].map((stat, index) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05, duration: 0.25 }}
+              whileHover={{ y: -3, scale: 1.01 }}
+              className="p-4 bg-gradient-to-r from-sky-50 via-white to-cyan-50 hover:from-sky-100 hover:to-cyan-50 border border-sky-100 hover:border-sky-300 rounded-xl text-center shadow-[0_4px_12px_rgba(14,165,233,0.08)] transition-colors"
+            >
+              <span className="text-[9px] text-sky-700 block uppercase font-extrabold mb-1 tracking-wider">{stat.label}</span>
+              <span className="text-base font-bold text-slate-800">{stat.value}</span>
+              <span className="text-[9px] text-slate-500 block font-semibold mt-0.5">{stat.detail}</span>
+            </motion.div>
+          ))}
         </div>
 
         {!metrics.hasAnyData ? (

@@ -43,6 +43,8 @@ interface QuestionData {
   reason?: string;
   expectedConcepts: string[];
   sourceReferences: Array<{ documentTitle: string; pageNumber?: number | null }>;
+  ttsAudioBase64?: string | null;
+  ttsMimeType?: string;
 }
 
 interface EvaluationData {
@@ -58,6 +60,8 @@ interface EvaluationData {
   idealAnswer: string;
   importantTerms: string[];
   topic: string;
+  ttsAudioBase64?: string | null;
+  ttsMimeType?: string;
 }
 
 interface HistoryEntry {
@@ -101,7 +105,6 @@ export default function VivaSection({
   const [inputMethodUsed, setInputMethodUsed] = useState<'text' | 'voice'>('text');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [finalAssessment, setFinalAssessment] = useState<string>('');
-  const spokenEvalRef = useRef<EvaluationData | null>(null);
 
   const recognitionRef = useRef<any>(null);
 
@@ -117,9 +120,39 @@ export default function VivaSection({
     setIsSpeaking(false);
   };
 
-  const speakText = async (text: string, style = 'warm, calm, encouraging teacher speaking naturally to a student; conversational pacing, gentle pauses, clear pronunciation, expressive but not exaggerated') => {
-    if (!text) return false;
+  const playAudioData = async (audioBase64: string | null | undefined, mimeType = 'audio/wav') => {
+    if (!audioBase64) return false;
     stopSpeaking();
+    return new Promise<boolean>((resolve) => {
+      try {
+        const audio = new Audio(`data:${mimeType};base64,${audioBase64}`);
+        audioRef.current = audio;
+        let settled = false;
+        const finish = (success: boolean) => {
+          if (settled) return;
+          settled = true;
+          if (audioRef.current === audio) {
+            audioRef.current = null;
+            setIsSpeaking(false);
+          }
+          resolve(success);
+        };
+        audio.onended = () => finish(true);
+        audio.onerror = () => finish(false);
+        setIsSpeaking(true);
+        void audio.play().catch(() => finish(false));
+      } catch {
+        setIsSpeaking(false);
+        resolve(false);
+      }
+    });
+  };
+
+  const speakText = async (
+    text: string,
+    style = 'warm, calm, encouraging teacher speaking naturally to a student; conversational pacing, gentle pauses, clear pronunciation, expressive but not exaggerated'
+  ) => {
+    if (!text) return false;
     try {
       const res = await fetchWithTimeout('/api/viva/tts', {
         method: 'POST',
@@ -127,82 +160,19 @@ export default function VivaSection({
         body: JSON.stringify({ text, style })
       }, 60000);
       const data = await res.json();
-      if (!res.ok || !data.success || !data.audioBase64) throw new Error(data.error || 'TTS failed');
-      const audio = new Audio(`data:${data.mimeType || 'audio/wav'};base64,${data.audioBase64}`);
-      audioRef.current = audio;
-      audio.onended = () => {
-        if (audioRef.current === audio) { audioRef.current = null; setIsSpeaking(false); }
-      };
-      audio.onerror = () => {
-        if (audioRef.current === audio) { audioRef.current = null; setIsSpeaking(false); }
-      };
-      setIsSpeaking(true);
-      await audio.play();
-      return true;
-    } catch (err) {
-      setIsSpeaking(false);
+      if (!res.ok || !data.success || !data.audioBase64) return false;
+      return await playAudioData(data.audioBase64, data.mimeType || 'audio/wav');
+    } catch {
       return false;
     }
   };
 
-  const speak = (text: string) => {
-    void speakText(text, 'warm, patient school teacher asking a student a question; natural conversational delivery, curious and attentive, gentle pauses, clear and friendly, not announcer-like');
-  };  const getTransition = (performance: string) => {
-    const perf = performance.toLowerCase();
-    if (perf.includes('strong')) {
-      const phrases = ["Good. Let’s take that one step further.", "Nice answer. Now let’s go a little deeper."];
-      return phrases[Math.floor(Math.random() * phrases.length)];
-    } else if (perf.includes('partial')) {
-      const phrases = ["Good start. Let’s explore that a little further.", "You’ve got the main idea. Let’s look at the next part."];
-      return phrases[Math.floor(Math.random() * phrases.length)];
-    } else {
-      const phrases = ["That’s okay. Let’s approach it from another angle.", "No problem. Let’s try a related concept."];
-      return phrases[Math.floor(Math.random() * phrases.length)];
-    }
-  };
-
-  const speakTransition = async (evaluation: EvaluationData, nextCallback: () => void) => {
-    const phrase = getTransition(evaluation.performance);
-    await speakText(phrase, 'warm, supportive teacher guiding a student; natural conversational transition, reassuring, relaxed pacing');
-    nextCallback();
-  };
-  const getAcknowledgement = (evaluation: EvaluationData) => {
-    if (evaluation.correctPoints && evaluation.correctPoints.length > 0) {
-      const point = evaluation.correctPoints[Math.floor(Math.random() * evaluation.correctPoints.length)];
-      const openers = [
-        "I noticed you specifically mentioned",
-        "It was good to hear you explain",
-        "I liked that you focused on"
-      ];
-      return `${openers[Math.floor(Math.random() * openers.length)]} ${point}. `;
-    }
-    return "";
-  };
-
-  const speakEvaluation = async (evaluation: EvaluationData, studentAnswer: string) => {
-    const acknowledgement = getAcknowledgement(evaluation);
-    const text = `${acknowledgement}Your score is ${evaluation.score} out of 100. ${evaluation.assessment}. ${
-      evaluation.correctPoints?.length > 0 && !acknowledgement ? 'You correctly identified ' + evaluation.correctPoints.join(', ') + '. ' : ''
-    }${evaluation.missingPoints?.length ? 'Concepts that need precision: ' + evaluation.missingPoints.join(', ') + '. ' : ''}${
-      evaluation.idealAnswer ? 'The ideal answer is: ' + evaluation.idealAnswer : ''
-    }`;
-    const spoken = await speakText(text, 'warm, patient teacher giving constructive feedback to a student; conversational, empathetic, encouraging, natural pauses and emphasis, never robotic or announcer-like');
-    if (spoken) await speakTransition(evaluation, handleNextQuestion);
-    else handleNextQuestion();
-  };
   useEffect(() => {
-    if (step === 'feedback' && currentEvaluation && currentEvaluation !== spokenEvalRef.current) {
-      spokenEvalRef.current = currentEvaluation;
-      speakEvaluation(currentEvaluation, studentAnswer);
-    }
-  }, [step, currentEvaluation, studentAnswer]);
-
-  useEffect(() => {
-    if (step === 'answering' && currentQuestion?.question) {
-      speak(currentQuestion.question);
+    if (step === 'answering' && currentQuestion?.ttsAudioBase64) {
+      void playAudioData(currentQuestion.ttsAudioBase64, currentQuestion.ttsMimeType || 'audio/wav');
     }
     return () => stopSpeaking();
-  }, [step, currentQuestion?.question]);
+  }, [step, currentQuestion?.ttsAudioBase64]);
 
   useEffect(() => {
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -518,6 +488,20 @@ export default function VivaSection({
         }
 
         setStep('feedback');
+
+        // The evaluation response already contains the complete teacher narration.
+        // Play it before advancing; never skip feedback or start the next question early.
+        if (evalResult.ttsAudioBase64) {
+          const feedbackFinished = await playAudioData(
+            evalResult.ttsAudioBase64,
+            evalResult.ttsMimeType || 'audio/wav'
+          );
+          if (feedbackFinished && currentQuestionNum < 5) {
+            handleNextQuestion();
+          } else if (feedbackFinished && currentQuestionNum >= 5) {
+            completeSession();
+          }
+        }
       } catch (err: any) {
         console.error('[VIVA UI ERROR] Answer evaluation failed:', err);
         setErrorMessage(err.message || 'Temporary evaluation failure. Please retry submission.');
@@ -889,7 +873,16 @@ export default function VivaSection({
           <h2 className="text-sm sm:text-base font-bold text-slate-800 leading-snug">
             "{currentQuestion.question}"
             <button
-              onClick={() => speak(currentQuestion.question)}
+              onClick={() => {
+                if (isSpeaking) {
+                  stopSpeaking();
+                } else {
+                  void speakText(
+                    currentQuestion.question,
+                    'warm, patient school teacher asking a student a question; natural conversational delivery, curious and attentive, gentle pauses, clear and friendly, not announcer-like'
+                  );
+                }
+              }
               className="ml-2 p-1 text-slate-400 hover:text-sky-500 transition-colors inline-block"
               title="Replay question"
             >

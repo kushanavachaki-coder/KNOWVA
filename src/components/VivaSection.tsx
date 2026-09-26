@@ -691,24 +691,20 @@ export default function VivaSection({
                     whileHover={{ y: -1, scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
                     transition={{ type: "spring", stiffness: 320, damping: 20 }}
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 group shadow-[0_5px_14px_rgba(14,165,233,0.10)] ${
-                      isSelected
-                        ? 'bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-sky-300 text-slate-700 shadow-[0_6px_16px_rgba(14,165,233,0.14)] ring-1 ring-sky-100'
-                        : 'bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-sky-100 hover:from-sky-100 hover:to-cyan-50 hover:border-sky-300 hover:shadow-[0_8px_18px_rgba(14,165,233,0.16)]'
-                    }`}
+                    className={`px-3 py-2.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-3 group ${isSelected ? 'bg-sky-50/80 border-sky-200 text-slate-700 shadow-sm' : 'bg-white/70 border-slate-200 hover:bg-sky-50/60 hover:border-sky-200 hover:shadow-sm'}`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <FileText className={`h-4 w-4 shrink-0 ${isSelected ? 'text-sky-500' : 'text-slate-400'}`} />
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className={`h-3.5 w-3.5 shrink-0 ${isSelected ? 'text-sky-500' : 'text-slate-400'}`} />
                       <div className="min-w-0">
-                        <span className={`text-xs font-bold truncate block ${isSelected ? 'text-slate-800' : 'text-slate-800'}`}>{mat.name}</span>
-                        <span className={`text-[10px] font-semibold block ${isSelected ? 'text-slate-400' : 'text-slate-400'}`}>
+                        <span className={`text-[11px] font-bold truncate block text-slate-800`}>{mat.name}</span>
+                        <span className={`text-[9px] font-semibold block text-slate-400`}>
                           {mat.type.toUpperCase()} • {mat.fileSize || 'Syllabus Source'}
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {isSelected && (
-                        <div className="h-5 w-5 rounded-full bg-sky-50 border border-sky-200 text-sky-600 flex items-center justify-center shrink-0 shadow-sm">
+                        <div className="h-4 w-4 rounded-full bg-white border border-sky-200 text-sky-600 flex items-center justify-center shrink-0 shadow-sm">
                           <Check className="h-3 w-3 stroke-[3]" />
                         </div>
                       )}

@@ -736,19 +736,30 @@ export default function VivaSection({
               <label className="text-[9px] text-slate-400 font-bold block uppercase">Select Difficulty</label>
               <div className="grid grid-cols-3 gap-2">
                 {(['basic', 'intermediate', 'advanced'] as const).map((level) => (
-                  <button
+                  <motion.button
                     key={level}
                     onClick={() => setDifficultySetup(level)}
-                    className={`py-2.5 text-xs font-bold rounded-xl border transition-all shadow-[0_4px_12px_rgba(14,165,233,0.06)] ${
+                    whileHover={{ y: -1, scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: "spring", stiffness: 320, damping: 20 }}
+                    className={`relative overflow-hidden py-2.5 text-xs font-bold rounded-xl border transition-colors shadow-[0_4px_12px_rgba(14,165,233,0.08)] ${
                       difficultySetup === level
-                        ? 'bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-sky-300 text-sky-700 shadow-[0_5px_14px_rgba(14,165,233,0.12)]'
-                        : 'bg-white border-sky-100 text-slate-600 hover:bg-gradient-to-r hover:from-sky-50 hover:to-cyan-50 hover:border-sky-300'
+                        ? 'border-sky-400 text-white shadow-[0_7px_16px_rgba(14,165,233,0.20)]'
+                        : 'bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-sky-100 text-slate-700 hover:border-sky-300 hover:shadow-[0_6px_14px_rgba(14,165,233,0.14)]'
                     }`}
                   >
-                    {level.charAt(0).toUpperCase() + level.slice(1)}
-                  </button>
-                ))}
-              </div>
+                    {difficultySetup === level && (
+                      <motion.span
+                        layoutId="vivaDifficultyActive"
+                        className="absolute inset-0 bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500"
+                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      />
+                    )}
+                    <span className="relative z-10">
+                      {level.charAt(0).toUpperCase() + level.slice(1)}
+                    </span>
+                  </motion.button>
+                ))}              </div>
             </div>
             <div className="grid grid-cols-2 gap-2 text-center">
               <motion.div

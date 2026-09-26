@@ -418,7 +418,7 @@ export default function ProfileSection({
             >
               <Edit2 className="h-3.5 w-3.5 drop-shadow-[0_2px_2px_rgba(14,165,233,0.20)]" />
             </motion.button>
-          </div>
+          </motion.div>
 
           {/* QUICK ACCOUNT STATE COUNTS */}
           <div className="grid grid-cols-2 gap-2.5">

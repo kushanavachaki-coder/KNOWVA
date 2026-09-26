@@ -358,7 +358,7 @@ export default function PlaceholderSection({
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Syllabus Material Breakdown */}
             <motion.div

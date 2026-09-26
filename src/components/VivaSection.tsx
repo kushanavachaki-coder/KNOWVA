@@ -693,15 +693,15 @@ export default function VivaSection({
                     transition={{ type: "spring", stiffness: 320, damping: 20 }}
                     className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 group shadow-[0_5px_14px_rgba(14,165,233,0.10)] ${
                       isSelected
-                        ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 border-sky-400 text-white shadow-[0_10px_24px_rgba(14,165,233,0.28)]'
+                        ? 'bg-white/85 border-sky-200 text-slate-700 shadow-[0_2px_8px_rgba(14,165,233,0.06)]'
                         : 'bg-gradient-to-r from-sky-50 via-white to-cyan-50 border-sky-100 hover:from-sky-100 hover:to-cyan-50 hover:border-sky-300 hover:shadow-[0_8px_18px_rgba(14,165,233,0.16)]'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <FileText className={`h-4 w-4 shrink-0 ${isSelected ? 'text-white' : 'text-slate-400'}`} />
+                      <FileText className={`h-4 w-4 shrink-0 ${isSelected ? 'text-sky-500' : 'text-slate-400'}`} />
                       <div className="min-w-0">
-                        <span className={`text-xs font-bold truncate block ${isSelected ? 'text-white' : 'text-slate-800'}`}>{mat.name}</span>
-                        <span className={`text-[10px] font-semibold block ${isSelected ? 'text-sky-100' : 'text-slate-400'}`}>
+                        <span className={`text-xs font-bold truncate block ${isSelected ? 'text-slate-800' : 'text-slate-800'}`}>{mat.name}</span>
+                        <span className={`text-[10px] font-semibold block ${isSelected ? 'text-slate-400' : 'text-slate-400'}`}>
                           {mat.type.toUpperCase()} • {mat.fileSize || 'Syllabus Source'}
                         </span>
                       </div>
@@ -713,10 +713,10 @@ export default function VivaSection({
                         transition={{ type: "spring", stiffness: 420, damping: 18 }}
                         className="shrink-0"
                       >
-                        <ArrowRight className={`h-3.5 w-3.5 transition-colors ${isSelected ? 'text-white' : 'text-slate-400 group-hover:text-sky-500'}`} />
+                        <ArrowRight className={`h-3.5 w-3.5 transition-colors ${isSelected ? 'text-sky-500' : 'text-slate-400 group-hover:text-sky-500'}`} />
                       </motion.span>
                       {isSelected && (
-                        <div className="h-5 w-5 rounded-full bg-white/20 border border-white/40 text-white flex items-center justify-center shrink-0 shadow-sm">
+                        <div className="h-5 w-5 rounded-full bg-sky-50 border border-sky-200 text-sky-600 flex items-center justify-center shrink-0 shadow-sm">
                           <Check className="h-3 w-3 stroke-[3]" />
                         </div>
                       )}

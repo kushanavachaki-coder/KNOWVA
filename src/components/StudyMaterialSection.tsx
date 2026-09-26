@@ -339,17 +339,21 @@ export default function StudyMaterialSection({
                 className="w-full h-24 px-3 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-sky-500 focus:bg-white transition-all resize-none"
               />
               <div className="flex justify-end gap-1.5">
-                <button
+                <motion.button
                   type="button"
+                  whileHover={{ y: -1, scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setActiveMode('none')}
-                  className="px-3 py-1.5 bg-transparent hover:bg-slate-50 text-slate-500 text-[10px] font-bold rounded-lg transition-colors cursor-pointer animate-none"
+                  className="px-3 py-1.5 bg-white/80 hover:bg-sky-50 text-slate-600 hover:text-sky-700 text-[10px] font-bold rounded-xl transition-all duration-200 cursor-pointer border border-sky-100/70 shadow-[0_3px_8px_rgba(14,165,233,0.08)] flex items-center gap-1"
                 >
                   Cancel
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   type="submit"
                   disabled={isProcessing}
-                  className="px-4 py-1.5 bg-sky-500 hover:bg-sky-600 text-white text-[10px] font-bold rounded-lg transition-colors shadow-sm cursor-pointer border-none flex items-center gap-1 disabled:opacity-50"
+                  whileHover={{ y: -1.5, scale: 1.02 }}
+                  whileTap={{ scale: 0.96 }}
+                  className="px-4 py-1.5 bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 hover:from-sky-600 hover:via-blue-700 hover:to-cyan-600 text-white text-[10px] font-bold rounded-xl transition-all duration-200 shadow-[0_5px_14px_rgba(14,165,233,0.20)] cursor-pointer border border-sky-500 flex items-center gap-1 disabled:opacity-50"
                 >
                   {isProcessing ? (
                     <>

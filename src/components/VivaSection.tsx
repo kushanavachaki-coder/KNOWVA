@@ -168,11 +168,23 @@ export default function VivaSection({
   };
 
   useEffect(() => {
-    if (step === 'answering' && currentQuestion?.ttsAudioBase64) {
-      void playAudioData(currentQuestion.ttsAudioBase64, currentQuestion.ttsMimeType || 'audio/wav');
-    }
-    return () => stopSpeaking();
-  }, [step, currentQuestion?.ttsAudioBase64]);
+    if (step !== 'answering' || !currentQuestion) return;
+
+    // A new question must always start with the teacher voice.
+    // Prefer the audio generated alongside the question; fall back to the Viva TTS endpoint.
+    void (async () => {
+      const played = currentQuestion.ttsAudioBase64
+        ? await playAudioData(currentQuestion.ttsAudioBase64, currentQuestion.ttsMimeType || 'audio/wav')
+        : false;
+
+      if (!played) {
+        await speakText(
+          currentQuestion.question,
+          'warm, patient school teacher asking a student a question; natural conversational delivery, curious and attentive, gentle pauses, clear and friendly, not announcer-like'
+        );
+      }
+    })();
+  }, [step, currentQuestion?.question, currentQuestion?.ttsAudioBase64]);
 
   useEffect(() => {
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -414,6 +426,7 @@ export default function VivaSection({
   const handleSubmitAnswer = async () => {
     if (!studentAnswer.trim() || !currentQuestion || !selectedMaterial || step === 'evaluating') return;
 
+    stopSpeaking();
     setStep('evaluating');
     setErrorMessage('');
 
@@ -489,16 +502,42 @@ export default function VivaSection({
 
         setStep('feedback');
 
-        // The evaluation response already contains the complete teacher narration.
-        // Play it before advancing; never skip feedback or start the next question early.
+        // Original Viva flow: display feedback -> read ALL feedback -> automatically continue.
+        // If server audio is unavailable, generate the same complete narration through the TTS endpoint.
+        const feedbackText = [
+          `Your score is ${evalResult.score} out of 100.`,
+          evalResult.assessment,
+          evalResult.correctPoints?.length ? `What you answered correctly: ${evalResult.correctPoints.join(". ")}.` : "",
+          evalResult.missingPoints?.length ? `Concepts missed or requiring precision: ${evalResult.missingPoints.join(". ")}.` : "",
+          evalResult.incorrectPoints?.length ? `Factual misconceptions identified: ${evalResult.incorrectPoints.join(". ")}.` : "",
+          evalResult.idealAnswer ? `The model ideal answer is: ${evalResult.idealAnswer}` : "",
+          evalResult.importantTerms?.length ? `Key terminology: ${evalResult.importantTerms.join(", ")}.` : "",
+          evalResult.performance === "strong"
+            ? "Good. Let’s take that one step further."
+            : evalResult.performance === "partial"
+              ? "Good start. Let’s explore that a little further."
+              : "That’s okay. Let’s approach it from another angle."
+        ].filter(Boolean).join(" ");
+
+        let feedbackFinished = false;
         if (evalResult.ttsAudioBase64) {
-          const feedbackFinished = await playAudioData(
+          feedbackFinished = await playAudioData(
             evalResult.ttsAudioBase64,
             evalResult.ttsMimeType || 'audio/wav'
           );
-          if (feedbackFinished) {
-            handleNextQuestion(evalResult, updatedHistory);
-          }
+        }
+
+        if (!feedbackFinished) {
+          feedbackFinished = await speakText(
+            feedbackText,
+            'warm, patient teacher giving complete constructive feedback to a student; conversational, empathetic, encouraging, natural pauses and emphasis, clear explanations, never robotic or announcer-like'
+          );
+        }
+
+        if (feedbackFinished) {
+          handleNextQuestion(evalResult, updatedHistory, true);
+        } else {
+          setErrorMessage('The teacher voice could not finish the feedback. Please replay the feedback to continue.');
         }
       } catch (err: any) {
         console.error('[VIVA UI ERROR] Answer evaluation failed:', err);
@@ -514,9 +553,10 @@ export default function VivaSection({
   // Move to next question or complete session
   const handleNextQuestion = (
     evaluationOverride?: EvaluationData,
-    historyOverride?: HistoryEntry[]
+    historyOverride?: HistoryEntry[],
+    forceAfterNarration = false
   ) => {
-    if (!selectedMaterial || isSpeaking) return;
+    if (!selectedMaterial || (isSpeaking && !forceAfterNarration)) return;
 
     const effectiveHistory = historyOverride || sessionHistory;
     const effectiveEvaluation = evaluationOverride || currentEvaluation;

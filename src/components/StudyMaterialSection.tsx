@@ -256,11 +256,17 @@ export default function StudyMaterialSection({
             onClick={() => { setActiveMode(activeMode === 'text' ? 'none' : 'text'); setErrorMessage(''); }}
             className={`px-3 py-1.5 text-[9px] font-bold tracking-wider uppercase rounded-xl transition-all duration-200 cursor-pointer border flex items-center gap-1 ${
               activeMode === 'text'
-                ? 'bg-sky-500 text-white border-sky-500 shadow-md shadow-sky-500/10'
-                : 'bg-slate-50 text-slate-600 border-slate-200/60 hover:bg-slate-100'
+                ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 text-white border-sky-500 shadow-[0_5px_14px_rgba(14,165,233,0.22)]'
+                : 'bg-white/80 text-slate-600 border-sky-100/70 hover:bg-sky-50 hover:text-sky-700'
             }`}
           >
-            <ClipboardList className="h-3 w-3" />
+            <motion.span
+              animate={activeMode === 'text' ? { y: [0, -1.5, 0], rotateY: [0, 8, 0] } : { y: 0, rotateY: 0 }}
+              transition={{ duration: 1.8, repeat: activeMode === 'text' ? Infinity : 0, ease: "easeInOut" }}
+              className={`inline-flex p-1 rounded-md ${activeMode === 'text' ? 'bg-gradient-to-br from-sky-100 via-white to-cyan-100 text-sky-500 shadow-[0_3px_8px_rgba(14,165,233,0.18)]' : 'bg-sky-50 text-sky-500'}`}
+            >
+              <ClipboardList className="h-3 w-3 drop-shadow-[0_2px_2px_rgba(14,165,233,0.20)]" />
+            </motion.span>
             <span>+ Paste Notes</span>
           </motion.button>
         </div>

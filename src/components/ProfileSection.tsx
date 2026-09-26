@@ -449,12 +449,14 @@ export default function ProfileSection({
               Application Settings
             </h3>
 
-            <div className="bg-white border border-slate-100 rounded-2xl divide-y divide-slate-100 overflow-hidden shadow-sm">
+            <motion.div
+              layout
+              className="bg-gradient-to-br from-white via-sky-50/70 to-cyan-50/50 border border-sky-200/80 rounded-2xl overflow-hidden shadow-[0_8px_20px_rgba(14,165,233,0.10)]">
               
               {/* Profile details link */}
               <button 
                 onClick={() => setCurrentSubView('edit_profile')}
-                className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-50 transition-colors cursor-pointer"
+                className="w-full p-3.5 flex items-center justify-between text-left hover:bg-sky-50/80 transition-all duration-200 cursor-pointer group"
               >
                 <div className="flex items-center gap-3">
                   <div className="p-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg">
@@ -465,13 +467,13 @@ export default function ProfileSection({
                     <span className="text-[9px] text-slate-400 font-medium block">Course, subject levels, bio details</span>
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-slate-300" />
+                <motion.span whileHover={{ x: 3 }} transition={{ type: "spring", stiffness: 400, damping: 20 }}><ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-500 transition-colors" /></motion.span>
               </button>
 
               {/* Study preferences link */}
               <button 
                 onClick={() => setCurrentSubView('study_pref')}
-                className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-50 transition-colors cursor-pointer"
+                className="w-full p-3.5 flex items-center justify-between text-left hover:bg-sky-50/80 transition-all duration-200 cursor-pointer group"
               >
                 <div className="flex items-center gap-3">
                   <div className="p-1.5 bg-sky-50 text-sky-600 border border-sky-100 rounded-lg">
@@ -482,13 +484,13 @@ export default function ProfileSection({
                     <span className="text-[9px] text-slate-400 font-medium block">Tutor style, exam modes, response details</span>
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-slate-300" />
+                <motion.span whileHover={{ x: 3 }} transition={{ type: "spring", stiffness: 400, damping: 20 }}><ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-500 transition-colors" /></motion.span>
               </button>
 
               {/* Notifications link */}
               <button 
                 onClick={() => setCurrentSubView('notifications')}
-                className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-50 transition-colors cursor-pointer"
+                className="w-full p-3.5 flex items-center justify-between text-left hover:bg-sky-50/80 transition-all duration-200 cursor-pointer group"
               >
                 <div className="flex items-center gap-3">
                   <div className="p-1.5 bg-cyan-50 text-cyan-600 border border-cyan-100 rounded-lg">
@@ -499,7 +501,7 @@ export default function ProfileSection({
                     <span className="text-[9px] text-slate-400 font-medium block">Daily review streak, spacing, viva alerts</span>
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-slate-300" />
+                <motion.span whileHover={{ x: 3 }} transition={{ type: "spring", stiffness: 400, damping: 20 }}><ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-500 transition-colors" /></motion.span>
               </button>
 
               {/* Appearance config (Theme is hardcoded to Light theme in requirements, so we explain) */}
@@ -521,7 +523,7 @@ export default function ProfileSection({
               {/* Data and privacy */}
               <button 
                 onClick={() => setCurrentSubView('privacy')}
-                className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-50 transition-colors cursor-pointer"
+                className="w-full p-3.5 flex items-center justify-between text-left hover:bg-sky-50/80 transition-all duration-200 cursor-pointer group"
               >
                 <div className="flex items-center gap-3">
                   <div className="p-1.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-lg">
@@ -532,13 +534,13 @@ export default function ProfileSection({
                     <span className="text-[9px] text-slate-400 font-medium block">Local cache files, device persistence bounds</span>
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-slate-300" />
+                <motion.span whileHover={{ x: 3 }} transition={{ type: "spring", stiffness: 400, damping: 20 }}><ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-500 transition-colors" /></motion.span>
               </button>
 
               {/* About app */}
               <button 
                 onClick={() => setCurrentSubView('about')}
-                className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-50 transition-colors cursor-pointer"
+                className="w-full p-3.5 flex items-center justify-between text-left hover:bg-sky-50/80 transition-all duration-200 cursor-pointer group"
               >
                 <div className="flex items-center gap-3">
                   <div className="p-1.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-lg">
@@ -549,10 +551,10 @@ export default function ProfileSection({
                     <span className="text-[9px] text-slate-400 font-medium block">Application version, team goals</span>
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-slate-300" />
+                <motion.span whileHover={{ x: 3 }} transition={{ type: "spring", stiffness: 400, damping: 20 }}><ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sky-500 transition-colors" /></motion.span>
               </button>
 
-            </div>
+            </motion.div>
           </div>
 
           {/* SIGN OUT / RESET BUTTONS */}

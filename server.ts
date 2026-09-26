@@ -1252,6 +1252,40 @@ Rules for answering:
     }
   });
 
+
+  // Generate the teacher voice without making voice generation part of the UI flow.
+  async function generateVivaTeacherAudio(text: string, style: string) {
+    if (!text || typeof text !== "string") return null;
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash-tts",
+        contents: [{
+          role: "user",
+          parts: [{
+            text,
+            speech_metadata: { style }
+          }]
+        }],
+        config: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: { voice: "Kore" }
+          }
+        }
+      });
+      const part = response.candidates?.[0]?.content?.parts?.[0];
+      if (part?.inlineData?.data) {
+        return {
+          audioBase64: part.inlineData.data,
+          mimeType: part.inlineData.mimeType || "audio/wav"
+        };
+      }
+    } catch (err: any) {
+      console.warn("[VIVA TTS WARNING] Non-blocking voice generation failed:", err?.message || err);
+    }
+    return null;
+  }
+
   // 4d. Viva Teacher Voice TTS Endpoint
   app.post("/api/viva/tts", requireAuth, async (req, res) => {
     try {
@@ -1665,17 +1699,25 @@ REQUIREMENTS:
         difficulty = 'intermediate';
       }
 
+      const questionText = String(questionResult.question).trim();
+      const questionVoice = await generateVivaTeacherAudio(
+        questionText,
+        "warm, patient school teacher asking a student a question; natural conversational delivery, curious and attentive, gentle pauses, clear and friendly, not announcer-like"
+      );
+
       return res.json({
         success: true,
         data: {
-          question: String(questionResult.question).trim(),
+          question: questionText,
           topic: String(questionResult.topic || "Syllabus Concept").trim(),
           difficulty,
           questionType: String(questionResult.questionType || "follow_up").trim(),
           targetConcept: String(questionResult.targetConcept || questionResult.topic || "Core Concept").trim(),
           reason: String(questionResult.reason || "Adaptive examination follow-up").trim(),
           expectedConcepts: Array.isArray(questionResult.expectedConcepts) ? questionResult.expectedConcepts.map(String) : [],
-          sourceReferences: Array.isArray(questionResult.sourceReferences) ? questionResult.sourceReferences : [{ documentTitle: documentTitle || "Syllabus Source" }]
+          sourceReferences: Array.isArray(questionResult.sourceReferences) ? questionResult.sourceReferences : [{ documentTitle: documentTitle || "Syllabus Source" }],
+          ttsAudioBase64: questionVoice?.audioBase64 || null,
+          ttsMimeType: questionVoice?.mimeType || "audio/wav"
         }
       });
     } catch (err: any) {
@@ -1843,21 +1885,51 @@ GRADING CRITERIA:
         recommendedDifficulty = performance === 'strong' ? 'advanced' : performance === 'partial' ? 'intermediate' : 'basic';
       }
 
+      const assessment = String(evalResult.assessment || "").trim();
+      const correctPoints = Array.isArray(evalResult.correctPoints) ? evalResult.correctPoints.map(String) : [];
+      const missingPoints = Array.isArray(evalResult.missingPoints) ? evalResult.missingPoints.map(String) : [];
+      const incorrectPoints = Array.isArray(evalResult.incorrectPoints) ? evalResult.incorrectPoints.map(String) : [];
+      const idealAnswer = String(evalResult.idealAnswer || "").trim();
+      const importantTerms = Array.isArray(evalResult.importantTerms) ? evalResult.importantTerms.map(String) : [];
+      const transition = performance === "strong"
+        ? "Good. Let’s take that one step further."
+        : performance === "partial"
+          ? "Good start. Let’s explore that a little further."
+          : "That’s okay. Let’s approach it from another angle.";
+
+      const feedbackVoiceText = [
+        `Your score is ${score} out of 100.`,
+        assessment,
+        correctPoints.length ? `What you answered correctly: ${correctPoints.join(". ")}.` : "",
+        missingPoints.length ? `Concepts missed or requiring precision: ${missingPoints.join(". ")}.` : "",
+        incorrectPoints.length ? `Factual misconceptions identified: ${incorrectPoints.join(". ")}.` : "",
+        idealAnswer ? `The model ideal answer is: ${idealAnswer}` : "",
+        importantTerms.length ? `Key terminology: ${importantTerms.join(", ")}.` : "",
+        transition
+      ].filter(Boolean).join(" ");
+
+      const feedbackVoice = await generateVivaTeacherAudio(
+        feedbackVoiceText,
+        "warm, patient teacher giving complete constructive feedback to a student; conversational, empathetic, encouraging, natural pauses and emphasis, clear explanations, never robotic or announcer-like"
+      );
+
       return res.json({
         success: true,
         data: {
           score,
           performance,
-          assessment: String(evalResult.assessment || "").trim(),
-          correctPoints: Array.isArray(evalResult.correctPoints) ? evalResult.correctPoints.map(String) : [],
-          missingPoints: Array.isArray(evalResult.missingPoints) ? evalResult.missingPoints.map(String) : [],
-          incorrectPoints: Array.isArray(evalResult.incorrectPoints) ? evalResult.incorrectPoints.map(String) : [],
+          assessment,
+          correctPoints,
+          missingPoints,
+          incorrectPoints,
           conceptsDemonstrated: Array.isArray(evalResult.conceptsDemonstrated) ? evalResult.conceptsDemonstrated.map(String) : [],
           conceptsToReview: Array.isArray(evalResult.conceptsToReview) ? evalResult.conceptsToReview.map(String) : [],
           recommendedDifficulty,
-          idealAnswer: String(evalResult.idealAnswer || "").trim(),
-          importantTerms: Array.isArray(evalResult.importantTerms) ? evalResult.importantTerms.map(String) : [],
-          topic: String(evalResult.topic || "Syllabus Topic").trim()
+          idealAnswer,
+          importantTerms,
+          topic: String(evalResult.topic || "Syllabus Topic").trim(),
+          ttsAudioBase64: feedbackVoice?.audioBase64 || null,
+          ttsMimeType: feedbackVoice?.mimeType || "audio/wav"
         }
       });
     } catch (err: any) {

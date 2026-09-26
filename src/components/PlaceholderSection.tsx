@@ -306,9 +306,15 @@ export default function PlaceholderSection({
         ) : (
           <>
             {/* Grounding & Asset Coverage Metrics */}
-            <div className="p-5 bg-white border border-slate-100 rounded-2xl space-y-4 shadow-sm">
-              <h3 className="text-[10px] font-extrabold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
-                <Target className="h-4 w-4 text-sky-500" />
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.28 }}
+              whileHover={{ y: -3 }}
+              className="p-5 bg-gradient-to-br from-sky-50 via-white to-cyan-50 hover:from-sky-100 hover:to-cyan-50 border border-sky-100 hover:border-sky-300 rounded-2xl space-y-4 shadow-[0_8px_20px_rgba(14,165,233,0.09)] transition-colors"
+            >
+              <h3 className="text-[10px] font-extrabold text-sky-700 uppercase tracking-widest flex items-center gap-1.5">
+                <Target className="h-4 w-4 text-sky-500 drop-shadow-[0_2px_2px_rgba(14,165,233,0.18)]" />
                 <span>Syllabus Grounding & Asset Metrics</span>
               </h3>
 
@@ -355,9 +361,15 @@ export default function PlaceholderSection({
             </div>
 
             {/* Syllabus Material Breakdown */}
-            <div className="p-5 bg-white border border-slate-100 rounded-2xl text-left space-y-3 shadow-sm">
-              <h3 className="text-[10px] font-extrabold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
-                <BookOpen className="h-4 w-4 text-sky-500" />
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.32, delay: 0.08 }}
+              whileHover={{ y: -3 }}
+              className="p-5 bg-gradient-to-br from-sky-50 via-white to-cyan-50 hover:from-sky-100 hover:to-cyan-50 border border-sky-100 hover:border-sky-300 rounded-2xl text-left space-y-3 shadow-[0_8px_20px_rgba(14,165,233,0.09)] transition-colors"
+            >
+              <h3 className="text-[10px] font-extrabold text-sky-700 uppercase tracking-widest flex items-center gap-1.5">
+                <BookOpen className="h-4 w-4 text-sky-500 drop-shadow-[0_2px_2px_rgba(14,165,233,0.18)]" />
                 <span>Syllabus Material Breakdown</span>
               </h3>
 

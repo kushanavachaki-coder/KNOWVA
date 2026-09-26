@@ -707,14 +707,6 @@ export default function VivaSection({
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <motion.span
-                        animate={{ x: isSelected ? 2 : 0 }}
-                        whileHover={{ x: 4 }}
-                        transition={{ type: "spring", stiffness: 420, damping: 18 }}
-                        className="shrink-0"
-                      >
-                        <ArrowRight className={`h-3.5 w-3.5 transition-colors ${isSelected ? 'text-sky-500' : 'text-slate-400 group-hover:text-sky-500'}`} />
-                      </motion.span>
                       {isSelected && (
                         <div className="h-5 w-5 rounded-full bg-sky-50 border border-sky-200 text-sky-600 flex items-center justify-center shrink-0 shadow-sm">
                           <Check className="h-3 w-3 stroke-[3]" />

@@ -363,7 +363,7 @@ export default function StudyMaterialSection({
                   ) : (
                     <span>Add Material</span>
                   )}
-                </button>
+                </motion.button>
               </div>
             </form>
           </motion.div>

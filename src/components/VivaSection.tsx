@@ -105,37 +105,49 @@ export default function VivaSection({
 
   const recognitionRef = useRef<any>(null);
 
-  // TTS functionality
-  const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+  // Gemini TTS: a warmer, teacher-like voice for Viva.
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  useEffect(() => {
-    const loadVoices = () => {
-      const voices = window.speechSynthesis.getVoices();
-      // Try to find a high-quality, natural-sounding voice
-      const preferred = voices.find(v => 
-        v.lang === 'en-US' && (v.name.includes('Google') || v.name.includes('Natural'))
-      ) || voices.find(v => v.lang === 'en-US');
-      setSelectedVoice(preferred || null);
-    };
-    
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
+  const stopSpeaking = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
     }
-    loadVoices();
-  }, []);
-
-  const speak = (text: string) => {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    if (selectedVoice) utterance.voice = selectedVoice;
-    utterance.rate = 0.95; // Slightly slower, more calm pace
-    utterance.pitch = 1;
-    window.speechSynthesis.speak(utterance);
+    setIsSpeaking(false);
   };
 
-  const getTransition = (performance: string) => {
+  const speakText = async (text: string, style = 'warm, calm, encouraging teacher speaking naturally to a student; conversational pacing, gentle pauses, clear pronunciation, expressive but not exaggerated') => {
+    if (!text) return false;
+    stopSpeaking();
+    try {
+      const res = await fetchWithTimeout('/api/viva/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, style })
+      }, 60000);
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.audioBase64) throw new Error(data.error || 'TTS failed');
+      const audio = new Audio(`data:${data.mimeType || 'audio/wav'};base64,${data.audioBase64}`);
+      audioRef.current = audio;
+      audio.onended = () => {
+        if (audioRef.current === audio) { audioRef.current = null; setIsSpeaking(false); }
+      };
+      audio.onerror = () => {
+        if (audioRef.current === audio) { audioRef.current = null; setIsSpeaking(false); }
+      };
+      setIsSpeaking(true);
+      await audio.play();
+      return true;
+    } catch (err) {
+      setIsSpeaking(false);
+      return false;
+    }
+  };
+
+  const speak = (text: string) => {
+    void speakText(text, 'warm, patient school teacher asking a student a question; natural conversational delivery, curious and attentive, gentle pauses, clear and friendly, not announcer-like');
+  };  const getTransition = (performance: string) => {
     const perf = performance.toLowerCase();
     if (perf.includes('strong')) {
       const phrases = ["Good. Let’s take that one step further.", "Nice answer. Now let’s go a little deeper."];
@@ -149,29 +161,11 @@ export default function VivaSection({
     }
   };
 
-  const speakTransition = (evaluation: EvaluationData, nextCallback: () => void) => {
-    if (!window.speechSynthesis) {
-      nextCallback();
-      return;
-    }
+  const speakTransition = async (evaluation: EvaluationData, nextCallback: () => void) => {
     const phrase = getTransition(evaluation.performance);
-    const utterance = new SpeechSynthesisUtterance(phrase);
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      nextCallback();
-    };
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-      nextCallback();
-    };
-    utterance.lang = 'en-US';
-    if (selectedVoice) utterance.voice = selectedVoice;
-    utterance.rate = 0.95;
-    utterance.pitch = 1;
-    window.speechSynthesis.speak(utterance);
+    await speakText(phrase, 'warm, supportive teacher guiding a student; natural conversational transition, reassuring, relaxed pacing');
+    nextCallback();
   };
-
   const getAcknowledgement = (evaluation: EvaluationData) => {
     if (evaluation.correctPoints && evaluation.correctPoints.length > 0) {
       const point = evaluation.correctPoints[Math.floor(Math.random() * evaluation.correctPoints.length)];
@@ -185,30 +179,17 @@ export default function VivaSection({
     return "";
   };
 
-  const speakEvaluation = (evaluation: EvaluationData, studentAnswer: string) => {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    
+  const speakEvaluation = async (evaluation: EvaluationData, studentAnswer: string) => {
     const acknowledgement = getAcknowledgement(evaluation);
     const text = `${acknowledgement}Your score is ${evaluation.score} out of 100. ${evaluation.assessment}. ${
       evaluation.correctPoints?.length > 0 && !acknowledgement ? 'You correctly identified ' + evaluation.correctPoints.join(', ') + '. ' : ''
     }${evaluation.missingPoints?.length ? 'Concepts that need precision: ' + evaluation.missingPoints.join(', ') + '. ' : ''}${
       evaluation.idealAnswer ? 'The ideal answer is: ' + evaluation.idealAnswer : ''
     }`;
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => {
-      speakTransition(evaluation, handleNextQuestion);
-    };
-    utterance.onerror = () => setIsSpeaking(false);
-    utterance.lang = 'en-US';
-    if (selectedVoice) utterance.voice = selectedVoice;
-    utterance.rate = 0.95; // Calm pace
-    utterance.pitch = 1;
-    window.speechSynthesis.speak(utterance);
+    const spoken = await speakText(text, 'warm, patient teacher giving constructive feedback to a student; conversational, empathetic, encouraging, natural pauses and emphasis, never robotic or announcer-like');
+    if (spoken) await speakTransition(evaluation, handleNextQuestion);
+    else handleNextQuestion();
   };
-
   useEffect(() => {
     if (step === 'feedback' && currentEvaluation && currentEvaluation !== spokenEvalRef.current) {
       spokenEvalRef.current = currentEvaluation;
@@ -220,7 +201,7 @@ export default function VivaSection({
     if (step === 'answering' && currentQuestion?.question) {
       speak(currentQuestion.question);
     }
-    return () => window.speechSynthesis.cancel();
+    return () => stopSpeaking();
   }, [step, currentQuestion?.question]);
 
   useEffect(() => {
@@ -1121,7 +1102,7 @@ export default function VivaSection({
         <div className="p-5 bg-white border border-slate-100 rounded-2xl space-y-3 shadow-sm">
           <div className="flex justify-between items-center">
             <span className="text-[10px] font-extrabold text-sky-800 uppercase tracking-wider">Teacher Summary</span>
-            <button onClick={() => speak(finalAssessment)} className="p-1.5 text-sky-500 hover:text-sky-700 transition-colors" title="Read summary aloud">
+            <button onClick={() => void speakText(finalAssessment, 'warm, reflective teacher summarizing a student\'s progress; supportive, human and conversational, gentle pacing')} className="p-1.5 text-sky-500 hover:text-sky-700 transition-colors" title="Read summary aloud">
                <Volume2 className="h-4 w-4" />
             </button>
           </div>

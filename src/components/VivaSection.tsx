@@ -887,7 +887,7 @@ export default function VivaSection({
                     'warm, patient school teacher asking a student a question; natural conversational delivery, curious and attentive, gentle pauses, clear and friendly, not announcer-like'
                   );
                 }
-              }
+              }}
               className="ml-2 p-1 text-slate-400 hover:text-sky-500 transition-colors inline-block"
               title="Replay question"
             >

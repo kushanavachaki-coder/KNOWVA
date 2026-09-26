@@ -1252,6 +1252,47 @@ Rules for answering:
     }
   });
 
+  // 4d. Viva Teacher Voice TTS Endpoint
+  app.post("/api/viva/tts", requireAuth, async (req, res) => {
+    try {
+      const { text, style } = req.body;
+      if (!text || typeof text !== "string") {
+        return res.status(400).json({ error: "Missing text for Viva TTS." });
+      }
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.8-flash-tts",
+        contents: [{
+          role: "user",
+          parts: [{
+            text,
+            speech_metadata: {
+              style: style || "warm, calm, encouraging teacher speaking naturally to a student; conversational pacing, gentle pauses, clear pronunciation, expressive but not exaggerated"
+            }
+          }]
+        }],
+        config: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: { voice: "Kore" }
+          }
+        }
+      });
+
+      const part = response.candidates?.[0]?.content?.parts?.[0];
+      if (part?.inlineData?.data) {
+        return res.json({
+          success: true,
+          audioBase64: part.inlineData.data,
+          mimeType: part.inlineData.mimeType || "audio/wav"
+        });
+      }
+      throw new Error("No audio data returned from Gemini TTS model.");
+    } catch (err: any) {
+      console.error("Viva TTS error:", err);
+      return res.status(500).json({ error: err.message || "Failed to generate Viva teacher voice." });
+    }
+  });
 
   // 4d. Generate Revision Note from completed Smart Revision session
   app.post("/api/revision/note/generate", requireAuth, async (req, res) => {

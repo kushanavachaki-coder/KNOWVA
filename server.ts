@@ -1269,7 +1269,7 @@ Rules for answering:
         config: {
           responseModalities: ["AUDIO"],
           speechConfig: {
-            voiceConfig: { voice: "Kore" }
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } }
           }
         }
       });
@@ -1308,7 +1308,7 @@ Rules for answering:
         config: {
           responseModalities: ["AUDIO"],
           speechConfig: {
-            voiceConfig: { voice: "Kore" }
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } }
           }
         }
       });

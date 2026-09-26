@@ -183,18 +183,23 @@ export default function ProfileSection({
             </div>
 
             <div className="flex gap-2 pt-2">
-              <button 
+              <motion.button
+                whileHover={{ y: -1, scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setCurrentSubView('settings_menu')}
-                className="flex-1 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl font-bold border border-slate-200 transition-colors cursor-pointer text-center"
+                className="flex-1 py-2.5 bg-white/80 hover:bg-sky-50 text-slate-600 hover:text-sky-700 rounded-xl font-bold border border-sky-100/70 transition-all duration-200 shadow-[0_3px_8px_rgba(14,165,233,0.08)] cursor-pointer text-center"
               >
                 Cancel
-              </button>
-              <button 
+              </motion.button>
+              <motion.button
+                whileHover={{ y: -1.5, scale: 1.02 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={handleSaveProfile}
-                className="flex-1 py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold transition-all shadow-md shadow-sky-500/10 cursor-pointer text-center"
+                className="flex-1 py-2.5 bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 hover:from-sky-600 hover:via-blue-700 hover:to-cyan-600 text-white rounded-xl font-bold transition-all duration-200 shadow-[0_5px_14px_rgba(14,165,233,0.20)] border border-sky-500 cursor-pointer text-center flex items-center justify-center gap-1.5"
               >
+                <Save className="h-3.5 w-3.5 drop-shadow-[0_2px_2px_rgba(255,255,255,0.30)]" />
                 Save Profile
-              </button>
+              </motion.button>
             </div>
           </div>
         </div>
@@ -403,13 +408,16 @@ export default function ProfileSection({
               <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5">{user.email}</p>
             </div>
 
-            <button 
+            <motion.button
+              whileHover={{ y: -1, scale: 1.06, rotateY: 8 }}
+              whileTap={{ scale: 0.94 }}
               onClick={() => setCurrentSubView('edit_profile')}
-              className="p-1.5 hover:bg-sky-50 text-sky-500 rounded-lg border border-slate-100 transition-colors cursor-pointer"
+              className="p-1.5 bg-gradient-to-br from-sky-100 via-white to-cyan-100 hover:from-sky-200 hover:to-cyan-100 text-sky-600 rounded-lg border border-sky-200 shadow-[0_3px_8px_rgba(14,165,233,0.14)] transition-all cursor-pointer"
+              style={{ transformPerspective: 600 }}
               title="Edit profile information"
             >
-              <Edit2 className="h-3.5 w-3.5" />
-            </button>
+              <Edit2 className="h-3.5 w-3.5 drop-shadow-[0_2px_2px_rgba(14,165,233,0.20)]" />
+            </motion.button>
           </div>
 
           {/* QUICK ACCOUNT STATE COUNTS */}
